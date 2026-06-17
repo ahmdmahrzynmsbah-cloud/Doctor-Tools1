@@ -33,9 +33,12 @@ export default function Invoices() {
   const [showDetailsAndPrices, setShowDetailsAndPrices] = useState(true);
   const [autoScannerActive, setAutoScannerActive] = useState(true);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [sharingInvoiceId, setSharingInvoiceId] = useState<string | null>(null);
+  const [isSharingImage, setIsSharingImage] = useState(false);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  const sharingPrintRef = useRef<HTMLDivElement>(null);
 
   const printingInvoice = printingInvoiceId ? invoices.find(i => i.id === printingInvoiceId) : null;
   const printingCustomer = printingInvoice ? customers.find(c => c.id === printingInvoice.customerId) : undefined;
@@ -62,6 +65,116 @@ export default function Invoices() {
     } catch (err) {
       console.error('Error downloading invoice:', err);
       alert('حدث خطأ أثناء محاولة حفظ الفاتورة كصورة');
+    }
+  };
+
+  const handleShareWhatsAppList = async (inv: any) => {
+    const cust = customers.find(c => c.id === inv.customerId);
+    if (!cust?.phone) {
+      alert("العميل ليس لديه رقم هاتف مسجل للمراسلة عبر واتساب.");
+      return;
+    }
+
+    // 1. Open popup immediately to preserve user gesture
+    const waWindow = window.open('about:blank', '_blank');
+    if (waWindow) {
+      waWindow.document.write('<html dir="rtl"><body style="font-family: system-ui; text-align: center; padding-top: 50px;"><h3>جاري تجهيز الفاتورة كصورة لفتح واتساب...</h3><p>برجاء الانتظار لثواني معدودة</p></body></html>');
+    }
+
+    try {
+      setIsSharingImage(true);
+      setSharingInvoiceId(inv.id);
+
+      // Wait a bit for React to render the component in the DOM
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
+      if (!element) {
+        if (waWindow) waWindow.close();
+        setIsSharingImage(false);
+        setSharingInvoiceId(null);
+        alert("حدث خطأ أثناء تحميل الفاتورة.");
+        return;
+      }
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        windowWidth: element.scrollWidth || 800,
+        windowHeight: element.scrollHeight
+      });
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          if (waWindow) waWindow.close();
+          setIsSharingImage(false);
+          setSharingInvoiceId(null);
+          alert("فشل إنشاء صورة الفاتورة.");
+          return;
+        }
+
+        try {
+          const textMsg = `مرحباً بك يا ${cust.name}،\nمرفق فاتورة مبيعات برقم: ${inv.invoiceNumber}.`;
+          
+          let phone = cust.phone;
+          if (phone.startsWith('0')) {
+              phone = '2' + phone.substring(1);
+          } else if (!phone.startsWith('2')) {
+              phone = '2' + phone;
+          }
+
+          const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(textMsg)}`;
+          
+          // Try clipboard safely
+          let copied = false;
+          if (navigator.clipboard && window.ClipboardItem) {
+            try {
+              await navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': blob })
+              ]);
+              copied = true;
+            } catch (err) {
+              console.log('Clipboard write failed, will rely on download');
+            }
+          }
+
+          // Always download as fallback
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `invoice_${inv.invoiceNumber}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+          
+          if (waWindow) {
+            waWindow.location.href = waUrl;
+          } else {
+            window.open(waUrl, '_blank');
+          }
+
+          if (copied) {
+              alert('تم نسخ الفاتورة كصورة وتحميلها بنجاح 📥\n\n- سيتم فتح الواتساب الآن.\n- يمكنك عمل "لصق" (Paste) لإرسال الصورة للعميل مباشرةً.');
+          } else {
+              alert('تم تحميل الفاتورة كصورة بنجاح 📥\n\n- سيتم فتح الواتساب الآن.\n- يمكنك إرفاق الصورة المحملة داخل المحادثة للعميل.');
+          }
+        } catch (error) {
+          console.error("Error sharing in background:", error);
+          if (waWindow) waWindow.close();
+        } finally {
+          setIsSharingImage(false);
+          setSharingInvoiceId(null);
+        }
+      }, 'image/png');
+
+    } catch (err) {
+      console.error(err);
+      if (waWindow) waWindow.close();
+      setIsSharingImage(false);
+      setSharingInvoiceId(null);
+      alert("حدث خطأ أثناء محاولة المعالجة.");
     }
   };
 
@@ -777,6 +890,16 @@ export default function Invoices() {
                             >
                               <Printer className="w-4 h-4" />
                             </button>
+                            {customer?.phone && (
+                              <button 
+                                type="button"
+                                onClick={() => handleShareWhatsAppList(inv)}
+                                className="p-1.5 text-[#25D366] bg-[#E6FDF0] border border-[#C6F6D5] rounded-md hover:bg-[#C6F6D5] hover:text-[#1EAF53] transition-colors cursor-pointer"
+                                title="مشاركة عبر واتساب"
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </button>
+                            )}
                             <button 
                               onClick={() => handleEditClick(inv.id)}
                               className="p-1.5 text-[#475569] bg-white border border-[#E2E8F0] rounded-md hover:text-[#10B981] hover:border-[#10B981] transition-colors cursor-pointer"
@@ -827,6 +950,36 @@ export default function Invoices() {
             </div>
           </div>
         )}
+
+        {/* State Loader Overlay for WhatsApp background image conversion */}
+        {isSharingImage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A2332]/60 backdrop-blur-sm p-4 print:hidden">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center flex flex-col items-center">
+              <Loader2 className="w-10 h-10 animate-spin text-[#25D366] mb-4" />
+              <h3 className="text-lg font-bold text-[#1E293B] mb-2 font-sans">جاري تجهيز صورة الفاتورة</h3>
+              <p className="text-[#475569] text-sm leading-relaxed text-center">
+                نقوم الآن بإنشاء نسخة عالية الجودة من الفاتورة كصورة وتحميلها لفتحها في واتساب مباشرةً...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Hidden Invoice Capture Area for instant background WhatsApp share */}
+        {sharingInvoiceId && (() => {
+          const inv = invoices.find(i => i.id === sharingInvoiceId);
+          if (!inv) return null;
+          const cust = customers.find(c => c.id === inv.customerId);
+          return (
+            <div style={{ position: 'fixed', left: '-9999px', top: 0, width: '800px', zIndex: -100 }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
+              <InvoicePrint 
+                invoice={inv} 
+                customer={cust} 
+                inventory={inventory} 
+                profile={businessProfile} 
+              />
+            </div>
+          );
+        })()}
       </div>
     </>
   );
