@@ -74,30 +74,36 @@ export default function Invoices() {
       setSharingInvoiceId(inv.id);
 
       // Wait a bit for React to render the component in the DOM
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
       if (!element) {
         setIsSharingImage(false);
         setSharingInvoiceId(null);
-        alert("حدث خطأ أثناء تحميل الفاتورة.");
+        alert("حدث خطأ أثناء تحديد الفاتورة في النظام.");
         return;
       }
 
       const canvas = await html2canvas(element, {
-        scale: 3,
+        scale: 2, // 2 is excellent quality and safe for memory limits
         useCORS: true,
         backgroundColor: '#ffffff',
-        logging: false,
+        logging: true,
+        width: 800,
+        height: element.scrollHeight || 1000,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 800,
+        windowHeight: element.scrollHeight || 1000,
         onclone: (clonedDoc) => {
           const el = clonedDoc.getElementById('hidden-share-invoice-print');
           if (el) {
-            el.style.position = 'relative';
-            el.style.left = '0';
-            el.style.top = '0';
-            el.style.zIndex = '9999';
+            el.style.position = 'static';
+            el.style.top = '0px';
+            el.style.left = '0px';
             el.style.opacity = '1';
-            el.style.width = '800px';
+            el.style.zIndex = '99999';
+            el.style.pointerEvents = 'auto';
           }
         }
       });
@@ -112,11 +118,11 @@ export default function Invoices() {
 
       setIsSharingImage(false);
       setSharingInvoiceId(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setIsSharingImage(false);
       setSharingInvoiceId(null);
-      alert("حدث خطأ أثناء محاولة المعالجة وحفظ الفاتورة كصورة.");
+      alert("حدث خطأ أثناء محاولة المعالجة وحفظ الفاتورة كصورة: " + (err?.message || String(err)));
     }
   };
 
@@ -805,7 +811,7 @@ export default function Invoices() {
           if (!inv) return null;
           const cust = customers.find(c => c.id === inv.customerId);
           return (
-            <div style={{ position: 'fixed', top: '100vh', left: '0px', width: '800px', zIndex: -100, opacity: 1, pointerEvents: 'none' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
+            <div style={{ position: 'fixed', top: '0px', left: '0px', width: '800px', zIndex: -10, opacity: 0.99, pointerEvents: 'none', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
               <InvoicePrint 
                 invoice={inv} 
                 customer={cust} 
