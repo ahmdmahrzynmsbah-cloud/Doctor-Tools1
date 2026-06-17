@@ -88,12 +88,12 @@ export default function Invoices() {
         scale: 2, // 2 is excellent quality and safe for memory limits
         useCORS: true,
         backgroundColor: '#ffffff',
-        logging: true,
-        width: 800,
+        logging: false,
+        width: 850,
         height: element.scrollHeight || 1000,
         scrollX: 0,
         scrollY: 0,
-        windowWidth: 800,
+        windowWidth: 850,
         windowHeight: element.scrollHeight || 1000,
         onclone: (clonedDoc) => {
           const el = clonedDoc.getElementById('hidden-share-invoice-print');
@@ -811,7 +811,7 @@ export default function Invoices() {
           if (!inv) return null;
           const cust = customers.find(c => c.id === inv.customerId);
           return (
-            <div style={{ position: 'fixed', top: '0px', left: '0px', width: '800px', zIndex: -10, opacity: 0.99, pointerEvents: 'none', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
+            <div style={{ position: 'fixed', top: '0px', left: '0px', width: '850px', zIndex: -10, opacity: 0.99, pointerEvents: 'none', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
               <InvoicePrint 
                 invoice={inv} 
                 customer={cust} 
