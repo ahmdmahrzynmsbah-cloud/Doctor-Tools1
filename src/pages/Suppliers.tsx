@@ -64,11 +64,14 @@ export default function Suppliers() {
 
       let purchaseDetails = '';
       if (!isPayment && inv.items.length > 0) {
-        const itemNames = inv.items.map(item => {
+        const itemDetails = inv.items.map(item => {
           const inventoryItem = inventory.find(i => i.id === item.itemId);
-          return inventoryItem ? `${inventoryItem.name} (${item.quantity})` : `صنف محذوف (${item.quantity})`;
+          const name = inventoryItem ? inventoryItem.name : 'صنف محذوف';
+          const itemPrice = item.price ?? item.unitPrice ?? 0;
+          const totalItemPrice = (item.quantity * itemPrice).toLocaleString();
+          return `${name} (العدد: ${item.quantity} | السعر الكلي: ${totalItemPrice} ج.م)`;
         });
-        purchaseDetails = ` - أصناف: ${itemNames.join('، ')}`;
+        purchaseDetails = ` - أصناف: ${itemDetails.join('، ')}`;
       }
 
       entries.push({
@@ -268,7 +271,7 @@ export default function Suppliers() {
       (purchase.items || []).forEach((item: any, idx: number) => {
         const invItem = inventory.find(i => i.id === item.itemId);
         const qty = item.quantity || 0;
-        const price = item.unitPrice || 0;
+        const price = item.price ?? item.unitPrice ?? 0;
         text += `${idx + 1}- ${invItem ? invItem.name : 'صنف محذوف'} | ${qty} x ${price.toLocaleString()} = ${(qty * price).toLocaleString()} ج.م\n`;
       });
       
@@ -987,6 +990,7 @@ export default function Suppliers() {
                   <tbody className="divide-y divide-[#E2E8F0]">
                     {printingPurchase.items.map((item: any, idx: number) => {
                       const invItem = inventory.find(i => i.id === item.itemId);
+                      const unitPrice = item.price ?? item.unitPrice ?? 0;
                       return (
                         <tr key={idx}>
                           <td className="py-4 px-4 text-sm text-[#64748B] font-bold print:text-black">{idx + 1}</td>
@@ -995,8 +999,8 @@ export default function Suppliers() {
                             {invItem && <span className="text-xs text-[#94A3B8] mt-1 font-mono">{invItem.code}</span>}
                           </td>
                           <td className="py-4 px-4 text-sm text-center font-bold text-[#475569] print:text-black" dir="ltr">{item.quantity}</td>
-                          <td className="py-4 px-4 text-sm text-center font-bold text-[#475569] print:text-black" dir="ltr">{item.unitPrice.toLocaleString()}</td>
-                          <td className="py-4 px-4 text-sm font-bold text-[#1E293B] text-left print:text-black" dir="ltr">{(item.quantity * item.unitPrice).toLocaleString()} ج.م</td>
+                          <td className="py-4 px-4 text-sm text-center font-bold text-[#475569] print:text-black" dir="ltr">{unitPrice.toLocaleString()}</td>
+                          <td className="py-4 px-4 text-sm font-bold text-[#1E293B] text-left print:text-black" dir="ltr">{(item.quantity * unitPrice).toLocaleString()} ج.م</td>
                         </tr>
                       );
                     })}
