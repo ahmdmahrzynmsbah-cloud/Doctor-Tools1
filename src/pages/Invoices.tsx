@@ -407,15 +407,6 @@ export default function Invoices() {
               طباعة الفاتورة
             </button>
             <button 
-              id="share-whatsapp-btn"
-              onClick={handleShareWhatsApp}
-              disabled={isGeneratingImage || !printingCustomer?.phone}
-              className="px-6 py-2 bg-[#25D366] text-white rounded-lg font-bold hover:bg-[#1DA851] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isGeneratingImage ? <Loader2 className="w-5 h-5 animate-spin" /> : <Share2 className="w-5 h-5" />}
-              مشاركة {printingCustomer?.phone ? 'واتساب' : '(لا يوجد رقم)'}
-            </button>
-            <button 
               onClick={downloadAsImage}
               className="px-6 py-2 bg-[#16A34A] text-white rounded-lg font-bold hover:bg-[#15803D] flex items-center gap-2"
             >
