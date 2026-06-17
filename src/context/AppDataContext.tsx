@@ -80,6 +80,8 @@ export type Invoice = {
   items: TransactionItem[];
   total: number;
   paid: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
   createdAt?: number;
   updatedAt?: number;
 };

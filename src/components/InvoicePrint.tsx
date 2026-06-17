@@ -10,6 +10,8 @@ type InvoicePrintProps = {
 
 export default function InvoicePrint({ invoice, customer, inventory, profile }: InvoicePrintProps) {
   const remaining = invoice.total - invoice.paid;
+  const subtotal = invoice.items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
+  const discountAmount = Math.max(0, subtotal - invoice.total);
 
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [isTainted, setIsTainted] = useState(false);
@@ -88,7 +90,7 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
             </div>
           )}
           <div className="flex flex-col justify-center">
-            <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">{profile.name || 'مركز خدمة السيارات'}</h1>
+            <h1 className="text-3xl font-extrabold text-[#0F172A]">{profile.name || 'مركز خدمة السيارات'}</h1>
             {profile.address && (
               <p className="text-[#64748B] text-sm mt-2 flex items-center gap-1.5">
                 <span>📍</span> {profile.address}
@@ -120,15 +122,15 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
       {/* Customer Info Card / Quick Specs */}
       <div className="bg-[#F8FAFC] rounded-2xl border border-[#E2E8F0] p-6 mb-8 grid grid-cols-3 gap-6">
         <div>
-          <span className="text-[#94A3B8] text-xs font-bold uppercase tracking-wider block mb-1">العميل الكريم</span>
+          <span className="text-[#94A3B8] text-xs font-bold block mb-1">العميل الكريم</span>
           <p className="font-extrabold text-lg text-[#0F172A]">{customer?.name || 'عميل غير معروف'}</p>
         </div>
         <div>
-          <span className="text-[#94A3B8] text-xs font-bold uppercase tracking-wider block mb-1">رقم الهاتف</span>
+          <span className="text-[#94A3B8] text-xs font-bold block mb-1">رقم الهاتف</span>
           <p className="font-mono font-bold text-md text-[#334155]" dir="ltr">{customer?.phone || '—'}</p>
         </div>
         <div>
-          <span className="text-[#94A3B8] text-xs font-bold uppercase tracking-wider block mb-1">كود العميل</span>
+          <span className="text-[#94A3B8] text-xs font-bold block mb-1">كود العميل</span>
           <p className="font-mono font-bold text-md text-[#334155]" dir="ltr">{customer?.serialNumber || '—'}</p>
         </div>
       </div>
@@ -138,11 +140,11 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
         <table className="w-full text-right border-collapse">
           <thead>
             <tr className="bg-[#0F172A] text-white">
-              <th className="py-4 px-5 text-xs font-extrabold uppercase tracking-wider text-center w-16">م</th>
+              <th className="py-4 px-5 text-xs font-extrabold text-center w-16">م</th>
               <th className="py-4 px-5 text-sm font-extrabold">البيان / الصنف</th>
-              <th className="py-4 px-5 text-xs font-extrabold uppercase tracking-wider text-center w-24">الكمية</th>
-              <th className="py-4 px-5 text-xs font-extrabold uppercase tracking-wider text-center w-32">سعر الوحدة</th>
-              <th className="py-4 px-5 text-xs font-extrabold uppercase tracking-wider text-left w-36">الإجمالي</th>
+              <th className="py-4 px-5 text-xs font-extrabold text-center w-24">الكمية</th>
+              <th className="py-4 px-5 text-xs font-extrabold text-center w-32">سعر الوحدة</th>
+              <th className="py-4 px-5 text-xs font-extrabold text-left w-36">الإجمالي</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E2E8F0] bg-white">
@@ -180,9 +182,29 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
 
         {/* Right: Beautiful Bento-style Totals Summary */}
         <div className="bg-[#F8FAFC] rounded-2xl border border-[#E2E8F0] p-6 space-y-4 shadow-sm">
-          <div className="flex justify-between items-center text-[#475569] border-b border-[#E2E8F0] pb-2 text-sm font-semibold">
-            <span>إجمالي الفاتورة:</span>
-            <span className="font-mono text-md font-bold text-[#1E293B]" dir="ltr">{invoice.total.toLocaleString()} ج.م</span>
+          {discountAmount > 0 && (
+            <div className="flex justify-between items-center text-[#475569] border-b border-[#E2E8F0] pb-2 text-sm font-semibold">
+              <span>الإجمالي قبل الخصم:</span>
+              <span className="font-mono text-md text-[#475569]" dir="ltr">
+                {subtotal.toLocaleString()} ج.م
+              </span>
+            </div>
+          )}
+          
+          {discountAmount > 0 && (
+            <div className="flex justify-between items-center text-[#DC2626] border-b border-[#E2E8F0] pb-2 text-sm font-bold bg-[#FEF2F2] px-2 py-1 rounded-lg">
+              <span>الخصم المطبق:</span>
+              <span className="font-mono text-md" dir="ltr">
+                - {discountAmount.toLocaleString()} ج.م
+                {invoice.discountValue && invoice.discountType === 'percentage' ? ` (${invoice.discountValue}%)` : ''}
+                {invoice.discountValue && invoice.discountType === 'fixed' ? ` (مبلغ ثابت)` : ''}
+              </span>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center text-[#1E293B] border-b border-[#E2E8F0] pb-2 text-sm font-bold">
+            <span>{discountAmount > 0 ? 'الإجمالي النهائي بعد الخصم:' : 'إجمالي الفاتورة:'}</span>
+            <span className="font-mono text-md font-black text-[#1E293B]" dir="ltr">{invoice.total.toLocaleString()} ج.م</span>
           </div>
           <div className="flex justify-between items-center text-[#16A34A] border-b border-[#E2E8F0] pb-2 text-sm font-bold">
             <span>المبلغ المدفوع:</span>
@@ -201,7 +223,7 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
       <div className="mt-16 pt-8 border-t border-[#E2E8F0]">
         <div className="flex justify-between items-center text-sm">
           <div className="text-center w-40">
-            <p className="text-[#94A3B8] text-xs font-bold uppercase tracking-wider mb-8">إمضاء العميل</p>
+            <p className="text-[#94A3B8] text-xs font-bold mb-8">إمضاء العميل</p>
             <div className="border-b border-[#CBD5E1] w-full h-8" />
           </div>
           <div className="text-center">
@@ -209,7 +231,7 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
             <p className="text-xs text-[#64748B] mt-1.5">نظام إدارة الفواتير والعملاء المتكامل</p>
           </div>
           <div className="text-center w-40">
-            <p className="text-[#94A3B8] text-xs font-bold uppercase tracking-wider mb-8">إمضاء الحسابات</p>
+            <p className="text-[#94A3B8] text-xs font-bold mb-8">إمضاء الحسابات</p>
             <div className="border-b border-[#CBD5E1] w-full h-8" />
           </div>
         </div>

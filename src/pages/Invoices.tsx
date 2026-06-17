@@ -47,12 +47,17 @@ export default function Invoices() {
     if (!printRef.current || !printingInvoice) return;
     
     try {
-      const canvas = await html2canvas(printRef.current, {
+      const element = (printRef.current.firstElementChild || printRef.current) as HTMLElement;
+      const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
-        windowWidth: printRef.current.scrollWidth,
-        windowHeight: printRef.current.scrollHeight
+        width: 850,
+        height: element.scrollHeight || 1100,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 850,
+        windowHeight: element.scrollHeight || 1100
       });
       
       const image = canvas.toDataURL('image/png');
@@ -229,7 +234,8 @@ export default function Invoices() {
       setCustomerPhoneInput(c.phone);
     }
     setInvoiceItems(inv.items.map(item => ({ inventoryId: item.itemId, qty: item.quantity, price: item.price })));
-    setDiscountValue(0); // Optional: infer discount if we had it, but we didn't save it
+    setDiscountValue(inv.discountValue || 0);
+    setDiscountType(inv.discountType || 'percentage');
     
     if (inv.paid >= inv.total) {
       setPaymentMethod('cash');
@@ -319,7 +325,9 @@ export default function Invoices() {
         customerId: targetCustomerId,
         items: mappedItems,
         total: finalTotal,
-        paid: paidAmount
+        paid: paidAmount,
+        discountType,
+        discountValue
       });
     } else {
       createInvoice({
@@ -327,7 +335,9 @@ export default function Invoices() {
         customerId: targetCustomerId,
         items: mappedItems,
         total: finalTotal,
-        paid: paidAmount
+        paid: paidAmount,
+        discountType,
+        discountValue
       });
     }
 
