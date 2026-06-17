@@ -74,7 +74,7 @@ export default function Invoices() {
       setSharingInvoiceId(inv.id);
 
       // Wait a bit for React to render the component in the DOM
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
       if (!element) {
@@ -85,11 +85,21 @@ export default function Invoices() {
       }
 
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         backgroundColor: '#ffffff',
-        windowWidth: element.scrollWidth || 800,
-        windowHeight: element.scrollHeight
+        logging: false,
+        onclone: (clonedDoc) => {
+          const el = clonedDoc.getElementById('hidden-share-invoice-print');
+          if (el) {
+            el.style.position = 'relative';
+            el.style.left = '0';
+            el.style.top = '0';
+            el.style.zIndex = '9999';
+            el.style.opacity = '1';
+            el.style.width = '800px';
+          }
+        }
       });
 
       const image = canvas.toDataURL('image/png');
@@ -795,7 +805,7 @@ export default function Invoices() {
           if (!inv) return null;
           const cust = customers.find(c => c.id === inv.customerId);
           return (
-            <div style={{ position: 'fixed', left: '-9999px', top: 0, width: '800px', zIndex: -100 }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
+            <div style={{ position: 'fixed', top: '100vh', left: '0px', width: '800px', zIndex: -100, opacity: 1, pointerEvents: 'none' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
               <InvoicePrint 
                 invoice={inv} 
                 customer={cust} 
