@@ -4,7 +4,7 @@ import { useAppData } from '@/src/context/AppDataContext';
 import { Save, User, Lock, Store, Upload } from 'lucide-react';
 
 export default function Settings() {
-  const { login } = useAuth(); // just to show we have auth context, normally there's user data
+  const { changePassword } = useAuth();
   const { businessProfile, updateBusinessProfile } = useAppData();
   const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,10 +53,15 @@ export default function Settings() {
     }
   };
 
-  const handleSecuritySubmit = (e: React.FormEvent) => {
+  const handleSecuritySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (security.newPassword !== security.confirmPassword) {
       alert('كلمة المرور الجديدة غير متطابقة!');
+      return;
+    }
+    const result = await changePassword(security.currentPassword, security.newPassword);
+    if (!result.success) {
+      alert(result.error || 'حدث خطأ أثناء تغيير كلمة المرور!');
       return;
     }
     alert('تم تغيير كلمة المرور بنجاح!');
