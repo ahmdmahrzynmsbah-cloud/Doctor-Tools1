@@ -86,10 +86,26 @@ export default function Customers() {
     let currentBalance = initialBalance;
     const entries = [];
 
+    // Formatter helper for customer registration/creation date
+    const getFormattedDate = (dateVal: any) => {
+      if (!dateVal) return '-';
+      try {
+        if (typeof dateVal === 'object' && dateVal.seconds) {
+          return new Date(dateVal.seconds * 1000).toLocaleDateString('ar-EG');
+        }
+        if (typeof dateVal.toDate === 'function') {
+          return dateVal.toDate().toLocaleDateString('ar-EG');
+        }
+        return new Date(dateVal).toLocaleDateString('ar-EG');
+      } catch (e) {
+        return '-';
+      }
+    };
+
     if (initialBalance !== 0 || transactions.length === 0) {
       entries.push({
         id: 'initial',
-        date: '-',
+        date: selectedCustomer.createdAt ? getFormattedDate(selectedCustomer.createdAt) : '-',
         description: 'رصيد مرحل (افتتاحي)',
         debit: initialBalance > 0 ? initialBalance : 0,
         credit: initialBalance < 0 ? Math.abs(initialBalance) : 0,
