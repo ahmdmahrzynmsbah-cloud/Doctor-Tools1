@@ -9,11 +9,14 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('autoserv_auth_state') === 'true';
+  });
 
   const login = async (pass: string) => {
     if (pass.trim().toLowerCase() === 'admin') {
       setIsAuthenticated(true);
+      localStorage.setItem('autoserv_auth_state', 'true');
       return { success: true };
     }
     return { success: false, error: 'كلمة المرور غير صحيحة. (استخدم: admin)' };
@@ -21,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setIsAuthenticated(false);
+    localStorage.removeItem('autoserv_auth_state');
   };
 
   return (

@@ -90,7 +90,7 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
             </div>
           )}
           <div className="flex flex-col justify-center">
-            <h1 className="text-3xl font-extrabold text-[#0F172A]">{profile.name || 'مركز خدمة السيارات'}</h1>
+            <h1 className="text-3xl font-extrabold text-[#0F172A]">{profile.name || 'Doctor Tools'}</h1>
             {profile.address && (
               <p className="text-[#64748B] text-sm mt-2 flex items-center gap-1.5">
                 <span>📍</span> {profile.address}
@@ -192,12 +192,18 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
           )}
           
           {discountAmount > 0 && (
-            <div className="flex justify-between items-center text-[#DC2626] border-b border-[#E2E8F0] pb-2 text-sm font-bold bg-[#FEF2F2] px-2 py-1 rounded-lg">
-              <span>الخصم المطبق:</span>
+            <div className="flex justify-between items-center text-[#DC2626] border-b border-[#E2E8F0] pb-2 text-sm font-bold bg-[#FEF2F2] px-3 py-1.5 rounded-lg border border-[#FECACA]">
+              <span className="flex items-center gap-1.5">
+                <span>الخصم المطبق</span>
+                {invoice.discountValue && invoice.discountType === 'percentage' ? (
+                  <span className="text-xs bg-[#FECACA] text-[#B91C1C] px-1.5 py-0.5 rounded-md font-mono">({invoice.discountValue}%)</span>
+                ) : invoice.discountValue && invoice.discountType === 'fixed' ? (
+                  <span className="text-xs bg-[#FECACA] text-[#B91C1C] px-1.5 py-0.5 rounded-md font-sans">(مبلغ ثابت)</span>
+                ) : ''}
+                :
+              </span>
               <span className="font-mono text-md" dir="ltr">
-                - {discountAmount.toLocaleString()} ج.م
-                {invoice.discountValue && invoice.discountType === 'percentage' ? ` (${invoice.discountValue}%)` : ''}
-                {invoice.discountValue && invoice.discountType === 'fixed' ? ` (مبلغ ثابت)` : ''}
+                -{discountAmount.toLocaleString()} ج.م
               </span>
             </div>
           )}

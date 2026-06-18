@@ -35,6 +35,8 @@ export default function Invoices() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [sharingInvoiceId, setSharingInvoiceId] = useState<string | null>(null);
   const [isSharingImage, setIsSharingImage] = useState(false);
+  const [downloadPreviewUrl, setDownloadPreviewUrl] = useState<string | null>(null);
+  const [downloadPreviewFilename, setDownloadPreviewFilename] = useState<string>('');
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const printRef = useRef<HTMLDivElement>(null);
@@ -43,10 +45,23 @@ export default function Invoices() {
   const printingInvoice = printingInvoiceId ? invoices.find(i => i.id === printingInvoiceId) : null;
   const printingCustomer = printingInvoice ? customers.find(c => c.id === printingInvoice.customerId) : undefined;
 
+  const dataURLtoBlob = (dataurl: string) => {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
   const downloadAsImage = async () => {
     if (!printRef.current || !printingInvoice) return;
     
     try {
+      setIsSharingImage(true);
       const element = (printRef.current.firstElementChild || printRef.current) as HTMLElement;
       const canvas = await html2canvas(element, {
         scale: 2,
@@ -61,14 +76,25 @@ export default function Invoices() {
       });
       
       const image = canvas.toDataURL('image/png');
+      const blob = dataURLtoBlob(image);
+      const blobUrl = URL.createObjectURL(blob);
+      const filename = `invoice_${printingInvoice.invoiceNumber}.png`;
+      
+      setDownloadPreviewUrl(blobUrl);
+      setDownloadPreviewFilename(filename);
+
+      // Programmatic download try
       const link = document.createElement('a');
-      link.href = image;
-      link.download = `invoice_${printingInvoice.invoiceNumber}.png`;
+      link.href = blobUrl;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      setIsSharingImage(false);
     } catch (err) {
       console.error('Error downloading invoice:', err);
+      setIsSharingImage(false);
       alert('حدث خطأ أثناء محاولة حفظ الفاتورة كصورة');
     }
   };
@@ -114,9 +140,16 @@ export default function Invoices() {
       });
 
       const image = canvas.toDataURL('image/png');
+      const blob = dataURLtoBlob(image);
+      const blobUrl = URL.createObjectURL(blob);
+      const filename = `invoice_${inv.invoiceNumber}.png`;
+
+      setDownloadPreviewUrl(blobUrl);
+      setDownloadPreviewFilename(filename);
+
       const link = document.createElement('a');
-      link.href = image;
-      link.download = `invoice_${inv.invoiceNumber}.png`;
+      link.href = blobUrl;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -272,7 +305,7 @@ export default function Invoices() {
     setItemSearchText('');
   };
 
-  const handleCreateOrUpdateInvoice = (e: React.FormEvent) => {
+  const handleCreateOrUpdateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (invoiceItems.length === 0) {
@@ -319,31 +352,35 @@ export default function Invoices() {
       price: item.price
     }));
 
-    if (editingInvoiceId && activeInvoice) {
-      updateInvoice(editingInvoiceId, {
-        date: activeInvoice.date,
-        customerId: targetCustomerId,
-        items: mappedItems,
-        total: finalTotal,
-        paid: paidAmount,
-        discountType,
-        discountValue
-      });
-    } else {
-      createInvoice({
-        date: new Date().toISOString(),
-        customerId: targetCustomerId,
-        items: mappedItems,
-        total: finalTotal,
-        paid: paidAmount,
-        discountType,
-        discountValue
-      });
-    }
+    try {
+      if (editingInvoiceId && activeInvoice) {
+        await updateInvoice(editingInvoiceId, {
+          date: activeInvoice.date,
+          customerId: targetCustomerId,
+          items: mappedItems,
+          total: finalTotal,
+          paid: paidAmount,
+          discountType,
+          discountValue
+        });
+      } else {
+        await createInvoice({
+          date: new Date().toISOString(),
+          customerId: targetCustomerId,
+          items: mappedItems,
+          total: finalTotal,
+          paid: paidAmount,
+          discountType,
+          discountValue
+        });
+      }
 
-    alert(editingInvoiceId ? 'تم تحديث الفاتورة بنجاح!' : 'تم إصدار الفاتورة بنجاح!');
-    resetForm();
-    setViewMode('list');
+      alert(editingInvoiceId ? 'تم تحديث الفاتورة بنجاح!' : 'تم إصدار الفاتورة بنجاح!');
+      resetForm();
+      setViewMode('list');
+    } catch (err: any) {
+      alert(err?.message || 'حدث خطأ غير متوقع أثناء معالجة الفاتورة.');
+    }
   };
 
   const resetForm = () => {
@@ -479,6 +516,19 @@ export default function Invoices() {
                          </select>
                        </div>
                     </div>
+
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between items-center mb-2 px-3 py-1.5 text-[#DC2626] font-bold text-sm bg-[#FEF2F2] rounded-lg border border-[#FCA5A5]/30">
+                        <span className="flex items-center gap-1.5">
+                          <span>المبلغ المخصوم</span>
+                          <span className="text-xs bg-[#FCA5A5]/40 text-[#B91C1C] px-1.5 py-0.5 rounded-md font-mono">
+                            ({discountType === 'percentage' ? `${discountValue}%` : 'ثابت'})
+                          </span>
+                          :
+                        </span>
+                        <span className="font-mono" dir="ltr">-{discountAmount.toLocaleString()} ج.م</span>
+                      </div>
+                    )}
 
                     <div className="flex justify-between items-center mt-6 pt-4 border-t border-[#E2E8F0]">
                       <span className="font-bold text-[#1E293B] text-xl">الإجمالي النهائي:</span>
@@ -831,6 +881,81 @@ export default function Invoices() {
             </div>
           );
         })()}
+
+        {/* Custom Bulletproof Download Preview Modal */}
+        {downloadPreviewUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A2332]/80 backdrop-blur-sm p-4 overflow-y-auto print:hidden">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 my-8 text-center flex flex-col items-center relative border border-[#E2E8F0]" style={{ direction: 'rtl' }}>
+              <button 
+                onClick={() => {
+                  URL.revokeObjectURL(downloadPreviewUrl);
+                  setDownloadPreviewUrl(null);
+                }}
+                className="absolute top-4 left-4 p-2 text-[#64748B] hover:text-[#1E293B] hover:bg-[#F1F5F9] rounded-xl transition-colors cursor-pointer"
+                title="إغلاق"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              
+              <div className="w-12 h-12 rounded-full bg-[#ECFDF5] text-[#10B981] flex items-center justify-center mb-4">
+                <Download className="w-6 h-6" />
+              </div>
+              
+              <h3 className="text-xl font-bold text-[#1E293B] mb-2 font-sans">تم تجهيز صورة الفاتورة بنجاح! 🎉</h3>
+              <p className="text-[#475569] text-sm leading-relaxed mb-6 max-w-md">
+                لقد أنشأنا نسخة عالية الجودة ومحسّنة من الفاتورة. بسبب قيود حماية المتصفح، إذا لم يبدأ التحميل تلقائياً، يمكنك النقر على الأزرار بالأسفل للحفظ مباشرة أو فتح الصورة وحفظها:
+              </p>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 w-full mb-6">
+                <a 
+                  href={downloadPreviewUrl} 
+                  download={downloadPreviewFilename}
+                  className="flex-1 py-3 px-5 bg-[#16A34A] text-white rounded-xl font-bold hover:bg-[#15803D] flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer no-underline text-sm"
+                >
+                  <Download className="w-5 h-5" />
+                  تحميل الفاتورة
+                </a>
+                <a 
+                  href={downloadPreviewUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3 px-5 bg-[#2180B2] text-white rounded-xl font-bold hover:bg-[#1A6B94] flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer no-underline text-sm"
+                >
+                  <Share2 className="w-5 h-5" />
+                  عرض بالحجم الكامل
+                </a>
+              </div>
+
+              {/* Mobile / Alternative Instruction */}
+              <div className="bg-[#F8FAFC] border border-[#E2E8F0] p-4 rounded-xl text-right w-full mb-4">
+                <p className="text-xs font-bold text-[#475569] mb-1">💡 طريقة بديلة للحفظ السريع:</p>
+                <p className="text-xs text-[#64748B] leading-relaxed">
+                  للجوال والكمبيوتر: يمكنك الضغط مطولاً على صورة المعاينة بالأسفل أو الضغط بزر الفأرة الأيمن عليها، ثم اختيار <span className="font-bold text-[#1E293B]">"حفظ الصورة باسم" (Save Image As)</span>.
+                </p>
+              </div>
+
+              {/* Image Preview Container */}
+              <div className="w-full max-h-[250px] overflow-y-auto rounded-xl border border-[#E2E8F0] shadow-inner bg-[#F1F5F9] p-3 flex justify-center">
+                <img 
+                  src={downloadPreviewUrl} 
+                  alt="معاينة الفاتورة" 
+                  className="max-w-full h-auto rounded shadow-sm object-contain"
+                />
+              </div>
+
+              <button 
+                onClick={() => {
+                  URL.revokeObjectURL(downloadPreviewUrl);
+                  setDownloadPreviewUrl(null);
+                }}
+                className="mt-6 text-[#64748B] hover:text-[#1E293B] font-bold text-sm bg-transparent border-none cursor-pointer"
+              >
+                إغلاق النافذة
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

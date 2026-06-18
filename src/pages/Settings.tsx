@@ -79,7 +79,7 @@ export default function Settings() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors cursor-pointer ${activeTab === 'profile' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#475569] hover:bg-[#E2E8F0]'}`}
           >
             <Store className="w-5 h-5" />
-            بيانات الورشة / النظام
+            بيانات العيادة / النظام
           </button>
           
           <button 
@@ -99,7 +99,7 @@ export default function Settings() {
                <h3 className="text-lg font-bold text-[#1E293B] mb-6 border-b border-[#E2E8F0] pb-2">تفاصيل واسم النظام</h3>
                <form onSubmit={handleProfileSubmit} className="space-y-5">
                   <div className="space-y-1">
-                    <label className="text-sm font-bold text-[#475569]">اسم الورشة / النظام</label>
+                    <label className="text-sm font-bold text-[#475569]">اسم العيادة / النظام</label>
                     <input 
                       type="text" required
                       value={profile.businessName}

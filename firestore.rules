@@ -29,7 +29,7 @@ service cloud.firestore {
         && data.name is string && data.name.size() > 0 && data.name.size() <= 100
         && data.phone is string && data.phone.size() > 0 && data.phone.size() <= 50
         && data.address is string && data.address.size() > 0 && data.address.size() <= 200
-        && (data.get('logo', null) == null || (data.logo is string && data.logo.size() <= 10000))
+        && (data.get('logo', null) == null || (data.logo is string && data.logo.size() <= 10000000))
         && data.createdAt is int
         && data.updatedAt is int;
     }
@@ -44,48 +44,48 @@ service cloud.firestore {
     }
 
     function isValidInventoryItem(data) {
-      return data.keys().hasAll(['ownerId', 'code', 'name', 'brand', 'compatibleCars', 'category', 'storageLocation', 'quantity', 'purchasePrice', 'sellPrice', 'createdAt', 'updatedAt'])
-        && data.keys().size() == 12
+      return data.keys().hasAll(['ownerId', 'code', 'name', 'category', 'quantity', 'purchasePrice', 'sellPrice', 'createdAt', 'updatedAt'])
+        && data.keys().size() >= 9 && data.keys().size() <= 13
         && data.ownerId == 'main_store'
         && data.code is string && data.code.size() > 0 && data.code.size() <= 100
         && data.name is string && data.name.size() > 0 && data.name.size() <= 200
-        && data.brand is string && data.brand.size() <= 100
-        && data.compatibleCars is string && data.compatibleCars.size() <= 200
         && data.category is string && data.category.size() > 0 && data.category.size() <= 100
-        && data.storageLocation is string && data.storageLocation.size() <= 100
         && data.quantity is number
         && data.purchasePrice is number
         && data.sellPrice is number
         && data.createdAt is int
-        && data.updatedAt is int;
+        && data.updatedAt is int
+        && (data.get('brand', null) == null || (data.brand is string && data.brand.size() <= 100))
+        && (data.get('compatibleCars', null) == null || (data.compatibleCars is string && data.compatibleCars.size() <= 200))
+        && (data.get('storageLocation', null) == null || (data.storageLocation is string && data.storageLocation.size() <= 100));
     }
 
     function isValidCustomer(data) {
-      return data.keys().hasAll(['ownerId', 'serialNumber', 'name', 'phone', 'balance', 'createdAt', 'updatedAt'])
-        && data.keys().size() == 7
+      return data.keys().hasAll(['ownerId', 'serialNumber', 'name', 'balance', 'createdAt', 'updatedAt'])
+        && data.keys().size() >= 6 && data.keys().size() <= 8
         && data.ownerId == 'main_store'
         && data.serialNumber is string && data.serialNumber.size() > 0 && data.serialNumber.size() <= 50
         && data.name is string && data.name.size() > 0 && data.name.size() <= 100
-        && data.phone is string && data.phone.size() <= 50
         && data.balance is number
         && data.createdAt is int
-        && data.updatedAt is int;
+        && data.updatedAt is int
+        && (data.get('phone', null) == null || (data.phone is string && data.phone.size() <= 50));
     }
 
     function isValidSupplier(data) {
-      return data.keys().hasAll(['ownerId', 'name', 'phone', 'balance', 'createdAt', 'updatedAt'])
-        && data.keys().size() == 6
+      return data.keys().hasAll(['ownerId', 'name', 'balance', 'createdAt', 'updatedAt'])
+        && data.keys().size() >= 5 && data.keys().size() <= 7
         && data.ownerId == 'main_store'
         && data.name is string && data.name.size() > 0 && data.name.size() <= 100
-        && data.phone is string && data.phone.size() <= 50
         && data.balance is number
         && data.createdAt is int
-        && data.updatedAt is int;
+        && data.updatedAt is int
+        && (data.get('phone', null) == null || (data.phone is string && data.phone.size() <= 50));
     }
 
     function isValidInvoice(data) {
       return data.keys().hasAll(['ownerId', 'invoiceNumber', 'date', 'customerId', 'items', 'total', 'paid', 'createdAt', 'updatedAt'])
-        && data.keys().size() == 9
+        && data.keys().size() >= 9 && data.keys().size() <= 11
         && data.ownerId == 'main_store'
         && data.invoiceNumber is string && data.invoiceNumber.size() > 0 && data.invoiceNumber.size() <= 50
         && data.date is string && data.date.size() > 0 && data.date.size() <= 50
@@ -94,7 +94,9 @@ service cloud.firestore {
         && data.total is number
         && data.paid is number
         && data.createdAt is int
-        && data.updatedAt is int;
+        && data.updatedAt is int
+        && (data.get('discountType', null) == null || data.discountType is string)
+        && (data.get('discountValue', null) == null || data.discountValue is number);
     }
 
     function isValidPurchase(data) {
