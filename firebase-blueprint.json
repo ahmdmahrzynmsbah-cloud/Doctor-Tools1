@@ -100,7 +100,11 @@
         "total": { "type": "number" },
         "paid": { "type": "number" },
         "createdAt": { "type": "number" },
-        "updatedAt": { "type": "number" }
+        "updatedAt": { "type": "number" },
+        "discountType": { "type": "string" },
+        "discountValue": { "type": "number" },
+        "isQuote": { "type": "boolean" },
+        "customCustomerName": { "type": "string" }
       },
       "required": ["ownerId", "invoiceNumber", "date", "customerId", "items", "total", "paid", "createdAt", "updatedAt"]
     },

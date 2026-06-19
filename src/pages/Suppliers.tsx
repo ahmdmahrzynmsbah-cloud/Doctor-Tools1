@@ -261,9 +261,24 @@ export default function Suppliers() {
     setIsAddSupplierModalOpen(true);
   };
 
-  const handleDeleteSupplier = (id: string, name: string) => {
-    if (window.confirm(`هل أنت متأكد من حذف المورد "${name}"؟`)) {
-      deleteSupplier(id);
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
+  const [isDeletingSupplier, setIsDeletingSupplier] = useState(false);
+
+  const handleDeleteSupplier = (supplier: Supplier) => {
+    setSupplierToDelete(supplier);
+  };
+
+  const handleConfirmDeleteSupplier = async () => {
+    if (!supplierToDelete) return;
+    setIsDeletingSupplier(true);
+    try {
+      await deleteSupplier(supplierToDelete.id);
+      setSupplierToDelete(null);
+    } catch (err: any) {
+      console.error(err);
+      alert('حدث خطأ أثناء حذف المورد: ' + (err?.message || String(err)));
+    } finally {
+      setIsDeletingSupplier(false);
     }
   };
 
@@ -588,7 +603,7 @@ export default function Suppliers() {
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteSupplier(supplier.id, supplier.name);
+                            handleDeleteSupplier(supplier);
                           }}
                           className="inline-flex items-center justify-center w-8 h-8 bg-white border border-[#E2E8F0] text-[#475569] rounded-lg hover:bg-[#FEE2E2] hover:text-[#DC2626] hover:border-[#FECACA] transition-colors cursor-pointer"
                         >
@@ -1053,6 +1068,57 @@ export default function Suppliers() {
                <button onClick={() => setPrintingPurchase(null)} className="px-6 py-2.5 bg-white border border-[#E2E8F0] text-[#1E293B] rounded-xl font-bold hover:bg-[#F1F5F9] transition-colors cursor-pointer">
                  إغلاق النافذة
                </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {supplierToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A2332]/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[#E2E8F0] flex justify-between items-center bg-[#FFF1F2]">
+              <h3 className="text-lg font-bold text-[#991B1B] flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-[#DC2626]" />
+                مراجعة وتأكيد الحذف
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setSupplierToDelete(null)}
+                className="text-[#94A3B8] hover:text-[#DC2626] transition-colors cursor-pointer bg-transparent border-none outline-none"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="text-right space-y-2">
+                <p className="text-sm font-bold text-[#1E293B]">
+                  هل أنت متأكد تماماً من رغبتك في حذف المورد <span className="text-[#DC2626] font-extrabold">{supplierToDelete.name}</span>؟
+                </p>
+                <p className="text-xs text-[#64748B] leading-relaxed">
+                  تنبيه: سيؤدي الحذف إلى إزالة سجل المورد نهائياً من الورشة وقاعدة البيانات. لن تتمكن من التراجع عن هذه الخطوة.
+                </p>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3 border-t border-[#E2E8F0]">
+                <button 
+                  type="button" 
+                  onClick={() => setSupplierToDelete(null)} 
+                  disabled={isDeletingSupplier}
+                  className="px-4 py-2 text-sm font-bold text-[#475569] bg-[#F1F5F9] rounded-lg hover:bg-[#E2E8F0] cursor-pointer disabled:opacity-50"
+                >
+                  إلغاء التراجع
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleConfirmDeleteSupplier}
+                  disabled={isDeletingSupplier}
+                  className="px-4 py-2 text-sm font-bold text-white bg-[#DC2626] rounded-lg hover:bg-[#B91C1C] cursor-pointer flex items-center gap-2 shadow-sm disabled:opacity-50"
+                >
+                  {isDeletingSupplier && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isDeletingSupplier ? 'جاري الحذف...' : 'نعم، تأكيد الحذف 🗑️'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

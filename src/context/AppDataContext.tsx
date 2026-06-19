@@ -84,6 +84,8 @@ export type Invoice = {
   discountValue?: number;
   createdAt?: number;
   updatedAt?: number;
+  isQuote?: boolean;
+  customCustomerName?: string;
 };
 
 export type PurchaseOrder = {
@@ -254,7 +256,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
   
   const deleteInventoryItem = async (id: string) => {
-    await deleteDoc(doc(db, 'users', uid, 'inventory', id));
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'inventory', id));
+    } catch (e: any) {
+      console.error('Error deleting inventory item:', e);
+      handleFirestoreError(e, OperationType.DELETE, `users/${uid}/inventory/${id}`);
+      throw new Error(e?.message || 'تعذر حذف الصنف من المخزن.');
+    }
   };
 
   const addCategory = async (category: string) => {
@@ -265,9 +273,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
   
   const removeCategory = async (categoryName: string) => {
-    const cat = categoriesDocs.find(c => c.name === categoryName);
-    if (cat) {
-      await deleteDoc(doc(db, 'users', uid, 'categories', cat.id));
+    try {
+      const cat = categoriesDocs.find(c => c.name === categoryName);
+      if (cat) {
+        await deleteDoc(doc(db, 'users', uid, 'categories', cat.id));
+      }
+    } catch (e: any) {
+      console.error('Error deleting category:', e);
+      handleFirestoreError(e, OperationType.DELETE, `users/${uid}/categories`);
+      throw new Error(e?.message || 'تعذر حذف القسم.');
     }
   };
 
@@ -289,7 +303,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteCustomer = async (id: string) => {
-    await deleteDoc(doc(db, 'users', uid, 'customers', id));
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'customers', id));
+    } catch (e: any) {
+      console.error('Error deleting customer:', e);
+      handleFirestoreError(e, OperationType.DELETE, `users/${uid}/customers/${id}`);
+      throw new Error(e?.message || 'تعذر حذف العميل.');
+    }
   };
 
   const addSupplier = async (supplier: Omit<Supplier, 'id'>) => {
@@ -302,31 +322,42 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteSupplier = async (id: string) => {
-    await deleteDoc(doc(db, 'users', uid, 'suppliers', id));
+    try {
+      await deleteDoc(doc(db, 'users', uid, 'suppliers', id));
+    } catch (e: any) {
+      console.error('Error deleting supplier:', e);
+      handleFirestoreError(e, OperationType.DELETE, `users/${uid}/suppliers/${id}`);
+      throw new Error(e?.message || 'تعذر حذف المورد.');
+    }
   };
 
   const createInvoice = async (invoice: Omit<Invoice, 'id' | 'invoiceNumber'>) => {
     try {
-      const invoiceNumber = `INV-${1000 + invoices.length + 1}`;
+      const isQuote = invoice.isQuote || false;
+      const invoiceNumber = isQuote 
+        ? `QT-${1000 + invoices.filter(i => i.isQuote).length + 1}`
+        : `INV-${1000 + invoices.length + 1}`;
       const newRef = doc(collection(db, 'users', uid, 'invoices'));
       const batch = writeBatch(db);
       
       batch.set(newRef, { ...invoice, ownerId: uid, invoiceNumber, createdAt: Date.now(), updatedAt: Date.now() });
       
-      for (const item of invoice.items) {
-        const invRef = doc(db, 'users', uid, 'inventory', item.itemId);
-        const currentItem = inventory.find(i => i.id === item.itemId);
-        if (currentItem) {
-          batch.update(invRef, { quantity: currentItem.quantity - item.quantity, updatedAt: Date.now() });
+      if (!isQuote) {
+        for (const item of invoice.items) {
+          const invRef = doc(db, 'users', uid, 'inventory', item.itemId);
+          const currentItem = inventory.find(i => i.id === item.itemId);
+          if (currentItem) {
+            batch.update(invRef, { quantity: currentItem.quantity - item.quantity, updatedAt: Date.now() });
+          }
         }
-      }
 
-      const remaining = invoice.total - invoice.paid;
-      if (remaining !== 0) {
-        const custRef = doc(db, 'users', uid, 'customers', invoice.customerId);
-        const currentCust = customers.find(c => c.id === invoice.customerId);
-        if (currentCust) {
-          batch.update(custRef, { balance: currentCust.balance + remaining, updatedAt: Date.now() });
+        const remaining = invoice.total - invoice.paid;
+        if (remaining !== 0 && invoice.customerId) {
+          const custRef = doc(db, 'users', uid, 'customers', invoice.customerId);
+          const currentCust = customers.find(c => c.id === invoice.customerId);
+          if (currentCust) {
+            batch.update(custRef, { balance: currentCust.balance + remaining, updatedAt: Date.now() });
+          }
         }
       }
       
@@ -346,41 +377,86 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const batch = writeBatch(db);
       batch.set(doc(db, 'users', uid, 'invoices', id), { ...invoice, ownerId: uid, updatedAt: Date.now() }, { merge: true });
 
-      for (const existingItem of existingInvoice.items) {
-        const invRef = doc(db, 'users', uid, 'inventory', existingItem.itemId);
-        const currentItem = inventory.find(i => i.id === existingItem.itemId);
-        if (currentItem) {
-          const newItem = invoice.items.find(i => i.itemId === existingItem.itemId);
-          let newQuantity = currentItem.quantity + existingItem.quantity;
-          if (newItem) newQuantity -= newItem.quantity;
-          batch.update(invRef, { quantity: newQuantity, updatedAt: Date.now() });
-        }
-      }
-      for (const newItem of invoice.items) {
-        if (!existingInvoice.items.find(i => i.itemId === newItem.itemId)) {
-          const invRef = doc(db, 'users', uid, 'inventory', newItem.itemId);
-          const currentItem = inventory.find(i => i.id === newItem.itemId);
+      const wasQuote = existingInvoice.isQuote || false;
+      const isQuote = invoice.isQuote || false;
+
+      if (!wasQuote && !isQuote) {
+        for (const existingItem of existingInvoice.items) {
+          const invRef = doc(db, 'users', uid, 'inventory', existingItem.itemId);
+          const currentItem = inventory.find(i => i.id === existingItem.itemId);
           if (currentItem) {
-            batch.update(invRef, { quantity: currentItem.quantity - newItem.quantity, updatedAt: Date.now() });
+            const newItem = invoice.items.find(i => i.itemId === existingItem.itemId);
+            let newQuantity = currentItem.quantity + existingItem.quantity;
+            if (newItem) newQuantity -= newItem.quantity;
+            batch.update(invRef, { quantity: newQuantity, updatedAt: Date.now() });
           }
         }
-      }
+        for (const newItem of invoice.items) {
+          if (!existingInvoice.items.find(i => i.itemId === newItem.itemId)) {
+            const invRef = doc(db, 'users', uid, 'inventory', newItem.itemId);
+            const currentItem = inventory.find(i => i.id === newItem.itemId);
+            if (currentItem) {
+              batch.update(invRef, { quantity: currentItem.quantity - newItem.quantity, updatedAt: Date.now() });
+            }
+          }
+        }
 
-      const oldRemaining = existingInvoice.total - existingInvoice.paid;
-      const newRemaining = invoice.total - invoice.paid;
-      
-      if (existingInvoice.customerId === invoice.customerId) {
-          const custRef = doc(db, 'users', uid, 'customers', existingInvoice.customerId);
-          const cust = customers.find(c => c.id === existingInvoice.customerId);
-          if (cust) batch.update(custRef, { balance: cust.balance - oldRemaining + newRemaining, updatedAt: Date.now() });
-      } else {
-          const oldCustRef = doc(db, 'users', uid, 'customers', existingInvoice.customerId);
-          const oldCust = customers.find(c => c.id === existingInvoice.customerId);
-          if (oldCust) batch.update(oldCustRef, { balance: oldCust.balance - oldRemaining, updatedAt: Date.now() });
+        const oldRemaining = existingInvoice.total - existingInvoice.paid;
+        const newRemaining = invoice.total - invoice.paid;
+        
+        if (existingInvoice.customerId && invoice.customerId) {
+          if (existingInvoice.customerId === invoice.customerId) {
+              const custRef = doc(db, 'users', uid, 'customers', existingInvoice.customerId);
+              const cust = customers.find(c => c.id === existingInvoice.customerId);
+              if (cust) batch.update(custRef, { balance: cust.balance - oldRemaining + newRemaining, updatedAt: Date.now() });
+          } else {
+              const oldCustRef = doc(db, 'users', uid, 'customers', existingInvoice.customerId);
+              const oldCust = customers.find(c => c.id === existingInvoice.customerId);
+              if (oldCust) batch.update(oldCustRef, { balance: oldCust.balance - oldRemaining, updatedAt: Date.now() });
 
+              const newCustRef = doc(db, 'users', uid, 'customers', invoice.customerId);
+              const newCust = customers.find(c => c.id === invoice.customerId);
+              if (newCust) batch.update(newCustRef, { balance: newCust.balance + newRemaining, updatedAt: Date.now() });
+          }
+        } else if (invoice.customerId) {
           const newCustRef = doc(db, 'users', uid, 'customers', invoice.customerId);
           const newCust = customers.find(c => c.id === invoice.customerId);
           if (newCust) batch.update(newCustRef, { balance: newCust.balance + newRemaining, updatedAt: Date.now() });
+        } else if (existingInvoice.customerId) {
+          const oldCustRef = doc(db, 'users', uid, 'customers', existingInvoice.customerId);
+          const oldCust = customers.find(c => c.id === existingInvoice.customerId);
+          if (oldCust) batch.update(oldCustRef, { balance: oldCust.balance - oldRemaining, updatedAt: Date.now() });
+        }
+      } else if (!wasQuote && isQuote) {
+        // Revert old standard operations
+        for (const soldItem of existingInvoice.items) {
+          const invRef = doc(db, 'users', uid, 'inventory', soldItem.itemId);
+          const currentItem = inventory.find(i => i.id === soldItem.itemId);
+          if (currentItem) {
+            batch.update(invRef, { quantity: currentItem.quantity + soldItem.quantity, updatedAt: Date.now() });
+          }
+        }
+        const remaining = existingInvoice.total - existingInvoice.paid;
+        if (remaining !== 0 && existingInvoice.customerId) {
+          const custRef = doc(db, 'users', uid, 'customers', existingInvoice.customerId);
+          const cust = customers.find(c => c.id === existingInvoice.customerId);
+          if (cust) batch.update(custRef, { balance: cust.balance - remaining, updatedAt: Date.now() });
+        }
+      } else if (wasQuote && !isQuote) {
+        // Apply new standard invoice operations
+        for (const soldItem of invoice.items) {
+          const invRef = doc(db, 'users', uid, 'inventory', soldItem.itemId);
+          const currentItem = inventory.find(i => i.id === soldItem.itemId);
+          if (currentItem) {
+            batch.update(invRef, { quantity: currentItem.quantity - soldItem.quantity, updatedAt: Date.now() });
+          }
+        }
+        const remaining = invoice.total - invoice.paid;
+        if (remaining !== 0 && invoice.customerId) {
+          const custRef = doc(db, 'users', uid, 'customers', invoice.customerId);
+          const cust = customers.find(c => c.id === invoice.customerId);
+          if (cust) batch.update(custRef, { balance: cust.balance + remaining, updatedAt: Date.now() });
+        }
       }
 
       await batch.commit();
@@ -395,25 +471,33 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const invToDelete = invoices.find(inv => inv.id === id);
     if (!invToDelete) return;
 
-    const batch = writeBatch(db);
-    batch.delete(doc(db, 'users', uid, 'invoices', id));
+    try {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'users', uid, 'invoices', id));
 
-    for (const soldItem of invToDelete.items) {
-      const invRef = doc(db, 'users', uid, 'inventory', soldItem.itemId);
-      const currentItem = inventory.find(i => i.id === soldItem.itemId);
-      if (currentItem) {
-        batch.update(invRef, { quantity: currentItem.quantity + soldItem.quantity, updatedAt: Date.now() });
+      if (!invToDelete.isQuote) {
+        for (const soldItem of invToDelete.items) {
+          const invRef = doc(db, 'users', uid, 'inventory', soldItem.itemId);
+          const currentItem = inventory.find(i => i.id === soldItem.itemId);
+          if (currentItem) {
+            batch.update(invRef, { quantity: currentItem.quantity + soldItem.quantity, updatedAt: Date.now() });
+          }
+        }
+
+        const remaining = invToDelete.total - invToDelete.paid;
+        if (remaining !== 0 && invToDelete.customerId) {
+          const custRef = doc(db, 'users', uid, 'customers', invToDelete.customerId);
+          const cust = customers.find(c => c.id === invToDelete.customerId);
+          if (cust) batch.update(custRef, { balance: cust.balance - remaining, updatedAt: Date.now() });
+        }
       }
-    }
 
-    const remaining = invToDelete.total - invToDelete.paid;
-    if (remaining !== 0) {
-      const custRef = doc(db, 'users', uid, 'customers', invToDelete.customerId);
-      const cust = customers.find(c => c.id === invToDelete.customerId);
-      if (cust) batch.update(custRef, { balance: cust.balance - remaining, updatedAt: Date.now() });
+      await batch.commit();
+    } catch (e: any) {
+      console.error('Error deleting invoice:', e);
+      handleFirestoreError(e, OperationType.DELETE, `users/${uid}/invoices/${id}`);
+      throw new Error(e?.message || 'تعذر حذف الفاتورة.');
     }
-
-    await batch.commit();
   };
 
   const createPurchase = async (purchase: Omit<PurchaseOrder, 'id'>) => {

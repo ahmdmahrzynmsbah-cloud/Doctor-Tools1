@@ -54,9 +54,24 @@ export default function Customers() {
     setIsAddModalOpen(true);
   };
 
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`هل أنت متأكد من حذف العميل "${name}"؟`)) {
-      deleteCustomer(id);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = (customer: Customer) => {
+    setCustomerToDelete(customer);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!customerToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteCustomer(customerToDelete.id);
+      setCustomerToDelete(null);
+    } catch (err: any) {
+      console.error(err);
+      alert('حدث خطأ أثناء حذف العميل: ' + (err?.message || String(err)));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -413,7 +428,7 @@ export default function Customers() {
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDelete(customer.id, customer.name);
+                              handleDelete(customer);
                             }}
                             className="inline-flex items-center justify-center w-8 h-8 bg-white border border-[#E2E8F0] text-[#475569] rounded-lg hover:bg-[#FEE2E2] hover:text-[#DC2626] hover:border-[#FECACA] transition-colors cursor-pointer"
                           >
@@ -637,6 +652,57 @@ export default function Customers() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {customerToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A2332]/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[#E2E8F0] flex justify-between items-center bg-[#FFF1F2]">
+              <h3 className="text-lg font-bold text-[#991B1B] flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-[#DC2626]" />
+                مراجعة وتأكيد الحذف
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setCustomerToDelete(null)}
+                className="text-[#94A3B8] hover:text-[#DC2626] transition-colors cursor-pointer bg-transparent border-none outline-none"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="text-right space-y-2">
+                <p className="text-sm font-bold text-[#1E293B]">
+                  هل أنت متأكد تماماً من رغبتك في حذف العميل <span className="text-[#DC2626] font-extrabold">{customerToDelete.name}</span>؟
+                </p>
+                <p className="text-xs text-[#64748B] leading-relaxed">
+                  تنبيه: سيؤدي الحذف إلى إزالة سجل العميل نهائياً من الورشة وقاعدة البيانات. لن تتمكن من التراجع عن هذه الخطوة.
+                </p>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3 border-t border-[#E2E8F0]">
+                <button 
+                  type="button" 
+                  onClick={() => setCustomerToDelete(null)} 
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-sm font-bold text-[#475569] bg-[#F1F5F9] rounded-lg hover:bg-[#E2E8F0] cursor-pointer disabled:opacity-50"
+                >
+                  إلغاء التراجع
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-sm font-bold text-white bg-[#DC2626] rounded-lg hover:bg-[#B91C1C] cursor-pointer flex items-center gap-2 shadow-sm disabled:opacity-50"
+                >
+                  {isDeleting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isDeleting ? 'جاري الحذف...' : 'نعم، تأكيد الحذف 🗑️'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

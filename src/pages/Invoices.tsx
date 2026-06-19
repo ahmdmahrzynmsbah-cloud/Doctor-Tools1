@@ -3,6 +3,8 @@ import { Plus, Search, FileText, X, Printer, Edit, Trash2, ListStart, List, Barc
 import html2canvas from 'html2canvas';
 import { useAppData } from '@/src/context/AppDataContext';
 import InvoicePrint from '../components/InvoicePrint';
+import { collection, doc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export default function Invoices() {
   const { invoices, customers, inventory, businessProfile, createInvoice, updateInvoice, deleteInvoice, addCustomer } = useAppData();
@@ -17,8 +19,10 @@ export default function Invoices() {
   const [invoiceToDelete, setInvoiceToDelete] = useState<string | null>(null);
 
   // Form State
+  const [isQuote, setIsQuote] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerNameInput, setCustomerNameInput] = useState('');
+  const [isCustomCustomer, setIsCustomCustomer] = useState(false);
   const [customerPhoneInput, setCustomerPhoneInput] = useState('');
   const [invoiceItems, setInvoiceItems] = useState<{ inventoryId: string, qty: number, price: number }[]>([]);
   const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
@@ -280,11 +284,22 @@ export default function Invoices() {
     if (!inv) return;
     
     setEditingInvoiceId(invoiceId);
-    const c = customers.find(c => c.id === inv.customerId);
-    if (c) {
-      setSelectedCustomerId(c.id);
-      setCustomerNameInput(c.name);
-      setCustomerPhoneInput(c.phone);
+    setIsQuote(inv.isQuote || false);
+    if (inv.isQuote && inv.customCustomerName) {
+      setSelectedCustomerId('');
+      setCustomerNameInput(inv.customCustomerName);
+      setCustomerPhoneInput('');
+    } else {
+      const c = customers.find(c => c.id === inv.customerId);
+      if (c) {
+        setSelectedCustomerId(c.id);
+        setCustomerNameInput(c.name);
+        setCustomerPhoneInput(c.phone);
+      } else {
+        setSelectedCustomerId('');
+        setCustomerNameInput('');
+        setCustomerPhoneInput('');
+      }
     }
     setInvoiceItems(inv.items.map(item => ({ inventoryId: item.itemId, qty: item.quantity, price: item.price })));
     setDiscountValue(inv.discountValue || 0);
@@ -334,33 +349,68 @@ export default function Invoices() {
     }
     
     let targetCustomerId = selectedCustomerId;
-    
-    // Auto-create customer if name entered but no selected id
-    if (!targetCustomerId && customerNameInput.trim()) {
-      // Find matching or create simple
-      const existingCId = customers.find(c => c.name === customerNameInput.trim());
-      if (existingCId) {
-        targetCustomerId = existingCId.id;
-      } else {
-        alert('بنسخة العرض التوضيحي، يرجى اختيار عميل من القائمة أو تسجيله من شاشة العملاء أولاً.');
-        return;
+    let customCustomerName = '';
+
+    if (isQuote) {
+      customCustomerName = customerNameInput.trim() || 'عميل نقدي/عرض سعر';
+      targetCustomerId = '';
+    } else {
+      // Auto-create customer if name entered but no selected id
+      const finalCustName = customerNameInput.trim() || 'عميل نقدي';
+      
+      if (!targetCustomerId) {
+        // Find if a customer with this name already exists
+        const existingCId = customers.find(c => c.name === finalCustName);
+        if (existingCId) {
+          targetCustomerId = existingCId.id;
+        } else {
+          // Create the customer automatically!
+          try {
+            const serialNumber = `CUST-${1000 + customers.length + 1}`;
+            const uidStr = 'main_store';
+            const custRef = doc(collection(db, 'users', uidStr, 'customers'));
+            await setDoc(custRef, {
+              ownerId: uidStr,
+              serialNumber,
+              name: finalCustName,
+              phone: customerPhoneInput.trim(),
+              balance: 0,
+              createdAt: Date.now(),
+              updatedAt: Date.now()
+            });
+            targetCustomerId = custRef.id;
+            
+            // Push to local customers list representation to ensure immediate UI and cache updating
+            customers.push({
+              id: custRef.id,
+              serialNumber,
+              name: finalCustName,
+              phone: customerPhoneInput.trim(),
+              balance: 0
+            });
+          } catch (custErr) {
+            console.error('Error auto-creating customer:', custErr);
+            alert('تعذر إنشاء حساب العميل تلقائياً، يرجى تسجيل العميل يدوياً من شاشة العملاء.');
+            return;
+          }
+        }
       }
-    } else if (!targetCustomerId) {
-      alert('يجب اختيار عميل');
-      return;
     }
 
     const activeInvoice = editingInvoiceId ? invoices.find(i => i.id === editingInvoiceId) : null;
     let hasStockIssues = false;
-    for (const vItem of invoiceItems) {
-      const invItem = getInventoryItem(vItem.inventoryId);
-      const oldQty = activeInvoice ? (activeInvoice.items.find(i => i.itemId === vItem.inventoryId)?.quantity || 0) : 0;
-      const available = invItem ? invItem.quantity + oldQty : 0;
+    
+    if (!isQuote) {
+      for (const vItem of invoiceItems) {
+        const invItem = getInventoryItem(vItem.inventoryId);
+        const oldQty = activeInvoice ? (activeInvoice.items.find(i => i.itemId === vItem.inventoryId)?.quantity || 0) : 0;
+        const available = invItem ? invItem.quantity + oldQty : 0;
 
-      if (!invItem || available < vItem.qty) {
-        hasStockIssues = true;
-        alert(`عذراً، الكمية المتوفرة من ${invItem?.name || ''} غير كافية (المتاح: ${available})`);
-        break;
+        if (!invItem || available < vItem.qty) {
+          hasStockIssues = true;
+          alert(`عذراً، الكمية المتوفرة من ${invItem?.name || ''} غير كافية (المتاح: ${available})`);
+          break;
+        }
       }
     }
 
@@ -373,29 +423,29 @@ export default function Invoices() {
     }));
 
     try {
-      if (editingInvoiceId && activeInvoice) {
-        await updateInvoice(editingInvoiceId, {
-          date: activeInvoice.date,
-          customerId: targetCustomerId,
-          items: mappedItems,
-          total: finalTotal,
-          paid: paidAmount,
-          discountType,
-          discountValue
-        });
-      } else {
-        await createInvoice({
-          date: new Date().toISOString(),
-          customerId: targetCustomerId,
-          items: mappedItems,
-          total: finalTotal,
-          paid: paidAmount,
-          discountType,
-          discountValue
-        });
+      const isEdit = !!(editingInvoiceId && activeInvoice);
+      const invoicePayload: any = {
+        date: isEdit ? activeInvoice.date : new Date().toISOString(),
+        customerId: targetCustomerId,
+        items: mappedItems,
+        total: finalTotal,
+        paid: isQuote ? 0 : paidAmount,
+        discountType,
+        discountValue,
+        isQuote
+      };
+
+      if (isQuote && customCustomerName) {
+        invoicePayload.customCustomerName = customCustomerName;
       }
 
-      alert(editingInvoiceId ? 'تم تحديث الفاتورة بنجاح!' : 'تم إصدار الفاتورة بنجاح!');
+      if (isEdit) {
+        await updateInvoice(editingInvoiceId!, invoicePayload);
+      } else {
+        await createInvoice(invoicePayload);
+      }
+
+      alert(editingInvoiceId ? 'تم تحديث الفاتورة بنجاح!' : 'تم إصدار الفاتورة أو عرض السعر بنجاح!');
       resetForm();
       setViewMode('list');
     } catch (err: any) {
@@ -405,8 +455,10 @@ export default function Invoices() {
 
   const resetForm = () => {
     setEditingInvoiceId(null);
+    setIsQuote(false);
     setSelectedCustomerId('');
     setCustomerNameInput('');
+    setIsCustomCustomer(false);
     setCustomerPhoneInput('');
     setInvoiceItems([]);
     setDiscountValue(0);
@@ -485,33 +537,107 @@ export default function Invoices() {
                </div>
 
                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-sm font-bold text-[#475569]">اسم العميل</label>
-                    <div className="flex gap-2">
-                       <select 
-                         value={selectedCustomerId}
-                         onChange={e => {
-                           setSelectedCustomerId(e.target.value);
-                           const c = customers.find(c => c.id === e.target.value);
-                           if (c) {
-                             setCustomerNameInput(c.name);
-                             setCustomerPhoneInput(c.phone);
-                           }
-                         }}
-                         className="flex-1 border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2180B2] focus:outline-none bg-white"
-                       >
-                         <option value="">اختيار عميل مسجل...</option>
-                         {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                       </select>
+                  {/* نوع المعاملة / الفاتورة */}
+                  <div className="space-y-1.5 mb-2">
+                    <label className="text-xs font-bold text-[#475569] block">نوع الفاتورة أو المستند</label>
+                    <div className="grid grid-cols-2 gap-2 p-1 bg-[#F1F5F9] rounded-xl border border-[#E2E8F0]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsQuote(false);
+                        }}
+                        className={`py-2 px-3 text-xs font-bold rounded-lg transition-all border-none cursor-pointer text-center ${!isQuote ? 'bg-[#2180B2] text-white shadow-sm' : 'bg-transparent text-[#64748B] hover:text-[#334155]'}`}
+                      >
+                        💼 فاتورة مبيعات معتمدة
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsQuote(true);
+                        }}
+                        className={`py-2 px-3 text-xs font-bold rounded-lg transition-all border-none cursor-pointer text-center ${isQuote ? 'bg-[#D97706] text-white shadow-sm' : 'bg-transparent text-[#64748B] hover:text-[#334155]'}`}
+                      >
+                        📄 عرض سعر جديد
+                      </button>
                     </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-sm font-bold text-[#475569] block">اسم العميل</label>
+                    {isQuote ? (
+                      <input 
+                        type="text"
+                        placeholder="اكتب اسم العميل يدوياً..."
+                        value={customerNameInput}
+                        onChange={e => setCustomerNameInput(e.target.value)}
+                        className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#D97706] focus:outline-none bg-white font-bold text-right"
+                        required
+                      />
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          {isCustomCustomer ? (
+                            <input 
+                              type="text"
+                              placeholder="اكتب اسم العميل يدوياً..."
+                              value={customerNameInput}
+                              onChange={e => setCustomerNameInput(e.target.value)}
+                              className="flex-grow border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2180B2] focus:outline-none bg-white font-bold text-right"
+                              required
+                            />
+                          ) : (
+                            <select 
+                              value={selectedCustomerId}
+                              onChange={e => {
+                                setSelectedCustomerId(e.target.value);
+                                const c = customers.find(c => c.id === e.target.value);
+                                if (c) {
+                                  setCustomerNameInput(c.name);
+                                  setCustomerPhoneInput(c.phone);
+                                } else {
+                                  setCustomerNameInput('');
+                                  setCustomerPhoneInput('');
+                                }
+                              }}
+                              className="flex-grow border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2180B2] focus:outline-none bg-white"
+                            >
+                              <option value="">اختيار عميل مسجل...</option>
+                              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomCustomer(!isCustomCustomer);
+                              setSelectedCustomerId('');
+                              setCustomerNameInput('');
+                              setCustomerPhoneInput('');
+                            }}
+                            className="px-3 py-2 bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg text-xs font-bold text-[#475569] hover:bg-[#E2E8F0] whitespace-nowrap cursor-pointer transition-colors"
+                          >
+                            {isCustomCustomer ? 'اختر مسجل 📋' : 'كتابة يدوي ✍️'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="space-y-1">
                     <label className="text-sm font-bold text-[#475569]">رقم الهاتف (جوال)</label>
-                    <input 
-                      type="text" placeholder="مثال: 055xxxxxxx" value={customerPhoneInput} readOnly
-                      className="w-full border border-[#E2E8F0] rounded-lg px-4 py-2 text-sm bg-[#F8FAFC]" dir="ltr"
-                    />
+                    {isQuote || isCustomCustomer ? (
+                      <input 
+                        type="text" 
+                        placeholder="مثال: 055xxxxxxx" 
+                        value={customerPhoneInput} 
+                        onChange={e => setCustomerPhoneInput(e.target.value)}
+                        className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2180B2] focus:outline-none bg-white font-mono" dir="ltr"
+                      />
+                    ) : (
+                      <input 
+                        type="text" placeholder="مثال: 055xxxxxxx" value={customerPhoneInput} readOnly
+                        className="w-full border border-[#E2E8F0] rounded-lg px-4 py-2 text-sm bg-[#F8FAFC]" dir="ltr"
+                      />
+                    )}
                   </div>
 
                   <div className="pt-4 border-t border-[#E2E8F0]">
@@ -556,30 +682,36 @@ export default function Invoices() {
                     </div>
                   </div>
 
-                  <div className="pt-4 space-y-3">
-                    <label className="text-sm font-bold text-[#475569]">طريقة الدفع للفاتورة:</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button type="button" onClick={() => setPaymentMethod('cash')} className={`py-2 rounded-lg font-bold text-sm border-none cursor-pointer ${paymentMethod === 'cash' ? 'bg-[#16A34A] text-white' : 'bg-[#F1F5F9] text-[#475569]'}`}>نقدي كاش</button>
-                      <button type="button" onClick={() => setPaymentMethod('deferred')} className={`py-2 rounded-lg font-bold text-sm border-none cursor-pointer ${paymentMethod === 'deferred' ? 'bg-[#DC2626] text-white' : 'bg-[#F1F5F9] text-[#475569]'}`}>أجل بالكامل</button>
-                      <button type="button" onClick={() => setPaymentMethod('partial')} className={`py-2 rounded-lg font-bold text-sm border-none cursor-pointer ${paymentMethod === 'partial' ? 'bg-[#D97706] text-white' : 'bg-[#F1F5F9] text-[#475569]'}`}>جزئي / عربون</button>
-                    </div>
-
-                    {paymentMethod === 'partial' && (
-                      <div className="mt-2">
-                        <label className="text-xs font-bold text-[#475569] block mb-1">المبلغ المدفوع (المحصل الآن)</label>
-                        <input 
-                           type="number" min="0" max={finalTotal} required
-                           value={paidAmount} onChange={e => setPaidAmount(Number(e.target.value))}
-                           className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2180B2] focus:outline-none"
-                         />
+                  {!isQuote ? (
+                    <div className="pt-4 space-y-3">
+                      <label className="text-sm font-bold text-[#475569]">طريقة الدفع للفاتورة:</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button type="button" onClick={() => setPaymentMethod('cash')} className={`py-2 rounded-lg font-bold text-sm border-none cursor-pointer ${paymentMethod === 'cash' ? 'bg-[#16A34A] text-white' : 'bg-[#F1F5F9] text-[#475569]'}`}>نقدي كاش</button>
+                        <button type="button" onClick={() => setPaymentMethod('deferred')} className={`py-2 rounded-lg font-bold text-sm border-none cursor-pointer ${paymentMethod === 'deferred' ? 'bg-[#DC2626] text-white' : 'bg-[#F1F5F9] text-[#475569]'}`}>أجل بالكامل</button>
+                        <button type="button" onClick={() => setPaymentMethod('partial')} className={`py-2 rounded-lg font-bold text-sm border-none cursor-pointer ${paymentMethod === 'partial' ? 'bg-[#D97706] text-white' : 'bg-[#F1F5F9] text-[#475569]'}`}>جزئي / عربون</button>
                       </div>
-                    )}
-                  </div>
+
+                      {paymentMethod === 'partial' && (
+                        <div className="mt-2">
+                          <label className="text-xs font-bold text-[#475569] block mb-1">المبلغ المدفوع (المحصل الآن)</label>
+                          <input 
+                             type="number" min="0" max={finalTotal} required
+                             value={paidAmount} onChange={e => setPaidAmount(Number(e.target.value))}
+                             className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#2180B2] focus:outline-none"
+                           />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="pt-4 px-4 py-3 bg-[#FFFDF5] text-[#D97706] border border-[#FDE68A] rounded-xl text-xs font-semibold leading-relaxed">
+                      💡 <strong>تنبيه عرض السعر:</strong> لن يتم خصم السلع من المخزون، ولن يتم تسجيل أي ديون أو معاملات مالية باسم العميل. هذا المستند مخصص كعرض سعر ورقي فقط.
+                    </div>
+                  )}
 
                   <div className="pt-4">
-                     <button type="submit" className="w-full py-4 bg-[#2180B2] hover:bg-[#1A6B94] text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all cursor-pointer border-none shadow-md">
+                     <button type="submit" className={`w-full py-4 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all cursor-pointer border-none shadow-md ${isQuote ? 'bg-[#D97706] hover:bg-[#B45309]' : 'bg-[#2180B2] hover:bg-[#1A6B94]'}`}>
                        <Save className="w-5 h-5" />
-                       {editingInvoiceId ? 'حفظ التعديلات' : 'إصدار الفاتورة وتأكيد'}
+                       {isQuote ? (editingInvoiceId ? 'حفظ عرض السعر المعدّل' : 'إصدار عرض السعر وتأكيد') : (editingInvoiceId ? 'حفظ التعديلات' : 'إصدار الفاتورة وتأكيد')}
                      </button>
                   </div>
                </div>
@@ -789,17 +921,27 @@ export default function Invoices() {
                     filteredInvoices.map((inv) => {
                       const customer = customers.find(c => c.id === inv.customerId);
                       const isFullyPaid = inv.paid >= inv.total;
+                      const customerName = inv.isQuote && inv.customCustomerName ? inv.customCustomerName : (customer?.name || 'عميل نقدي');
                       return (
                         <tr key={inv.id} className="hover:bg-[#F8FAFC]">
                           <td className="px-6 py-4 font-mono font-bold text-[#2180B2]">{inv.invoiceNumber}</td>
                           <td className="px-6 py-4 text-[#475569]">{new Date(inv.date).toLocaleDateString()}</td>
-                          <td className="px-6 py-4 font-bold text-[#1E293B]">{customer?.name || 'عميل محذوف'}</td>
+                          <td className="px-6 py-4 font-bold text-[#1E293B]">
+                            {customerName}
+                            {inv.isQuote && <span className="mr-2 text-[10px] bg-[#FEF3C7] text-[#D97706] px-1.5 py-0.5 rounded font-bold">عرض سعر</span>}
+                          </td>
                           <td className="px-6 py-4 font-bold">{inv.total.toLocaleString()}</td>
-                          <td className="px-6 py-4 text-[#16A34A]">{inv.paid.toLocaleString()}</td>
+                          <td className="px-6 py-4 text-[#16A34A]">{inv.isQuote ? '---' : inv.paid.toLocaleString()}</td>
                           <td className="px-6 py-4">
-                            {isFullyPaid && <span className="px-2 py-1 rounded-md text-[11px] font-bold bg-[#F0FDF4] text-[#16A34A] whitespace-nowrap">مدفوعة بالكامل</span>}
-                            {(!isFullyPaid && inv.paid > 0) && <span className="px-2 py-1 rounded-md text-[11px] font-bold bg-[#FFFBEB] text-[#D97706] whitespace-nowrap">مدفوعة جزئياً</span>}
-                            {inv.paid === 0 && <span className="px-2 py-1 rounded-md text-[11px] font-bold bg-[#FEF2F2] text-[#DC2626] whitespace-nowrap">آجل بالكامل</span>}
+                            {inv.isQuote ? (
+                              <span className="px-2 py-1 rounded-md text-[11px] font-bold bg-[#FFFBEB] text-[#D97706] whitespace-nowrap border border-[#FDE68A]">عرض سعر معتمد</span>
+                            ) : (
+                              <>
+                                {isFullyPaid && <span className="px-2 py-1 rounded-md text-[11px] font-bold bg-[#F0FDF4] text-[#16A34A] whitespace-nowrap">مدفوعة بالكامل</span>}
+                                {(!isFullyPaid && inv.paid > 0) && <span className="px-2 py-1 rounded-md text-[11px] font-bold bg-[#FFFBEB] text-[#D97706] whitespace-nowrap">مدفوعة جزئياً</span>}
+                                {inv.paid === 0 && <span className="px-2 py-1 rounded-md text-[11px] font-bold bg-[#FEF2F2] text-[#DC2626] whitespace-nowrap">آجل بالكامل</span>}
+                              </>
+                            )}
                           </td>
                           <td className="px-6 py-4 flex items-center justify-center gap-2">
                             <button 
