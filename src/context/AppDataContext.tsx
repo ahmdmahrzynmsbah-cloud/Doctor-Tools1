@@ -110,6 +110,7 @@ export type BusinessProfile = {
   name: string;
   phone: string;
   address: string;
+  description?: string;
   logo: string | null;
   createdAt?: number;
   updatedAt?: number;
@@ -174,6 +175,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     name: 'Doctor Tools',
     phone: '01000000000',
     address: 'القاهرة، مصر',
+    description: 'نظام إدارة العيادات والمستلزمات الطبية المتكامل',
     logo: null
   });
 
@@ -510,6 +512,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         name: profile.name || 'Doctor Tools',
         phone: profile.phone || '01000000000',
         address: profile.address || 'القاهرة، مصر',
+        description: profile.description || 'نظام إدارة العيادات والمستلزمات الطبية المتكامل',
         logo: profile.logo || null,
         ownerId: uid,
         createdAt: businessProfile.createdAt || profile.createdAt || Date.now(),

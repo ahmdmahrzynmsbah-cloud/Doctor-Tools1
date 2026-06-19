@@ -40,15 +40,17 @@ export default function Login() {
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#2180B2] to-[#2ECC71]"></div>
         
         <div className="flex flex-col items-center justify-center text-center mt-6 mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-[#2180B2] to-[#1A6B94] rounded-2xl flex items-center justify-center mb-5 shadow-lg transform rotate-3 p-1.5 overflow-hidden">
+          <div className="w-20 h-20 bg-white border border-[#CBD5E1] rounded-2xl flex items-center justify-center mb-5 shadow-md p-1.5 overflow-hidden">
             {businessProfile?.logo ? (
               <img src={businessProfile.logo} alt="Logo" className="w-full h-full object-contain rounded-xl" />
             ) : (
-              <Stethoscope className="w-10 h-10 text-white -rotate-3" />
+              <div className="w-full h-full bg-gradient-to-br from-[#2180B2] to-[#1A6B94] rounded-xl flex items-center justify-center text-white">
+                <Stethoscope className="w-10 h-10" />
+              </div>
             )}
           </div>
           <h1 className="text-3xl font-black text-[#1E293B] tracking-tight">{businessProfile?.name || 'Doctor Tools'}</h1>
-          <p className="text-[#475569] font-medium mt-2">نظام إدارة العيادات والمستلزمات الطبية المتكامل</p>
+          <p className="text-[#475569] font-medium mt-2">{businessProfile?.description || 'نظام إدارة العيادات والمستلزمات الطبية المتكامل'}</p>
         </div>
 
         <div className="bg-[#F8FAFC] rounded-xl p-6 border border-[#E2E8F0] mb-8">

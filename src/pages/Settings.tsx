@@ -13,6 +13,7 @@ export default function Settings() {
     businessName: businessProfile.name,
     phone: businessProfile.phone,
     address: businessProfile.address,
+    description: businessProfile.description || '',
     logo: businessProfile.logo
   });
 
@@ -21,6 +22,7 @@ export default function Settings() {
       businessName: businessProfile.name,
       phone: businessProfile.phone,
       address: businessProfile.address,
+      description: businessProfile.description || '',
       logo: businessProfile.logo
     });
   }, [businessProfile]);
@@ -37,6 +39,7 @@ export default function Settings() {
       name: profile.businessName,
       phone: profile.phone,
       address: profile.address,
+      description: profile.description,
       logo: profile.logo
     });
     alert('تم حفظ البيانات بنجاح!');
@@ -84,7 +87,7 @@ export default function Settings() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors cursor-pointer ${activeTab === 'profile' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'text-[#475569] hover:bg-[#E2E8F0]'}`}
           >
             <Store className="w-5 h-5" />
-            بيانات العيادة / النظام
+            بيانات النظام
           </button>
           
           <button 
@@ -104,7 +107,7 @@ export default function Settings() {
                <h3 className="text-lg font-bold text-[#1E293B] mb-6 border-b border-[#E2E8F0] pb-2">تفاصيل واسم النظام</h3>
                <form onSubmit={handleProfileSubmit} className="space-y-5">
                   <div className="space-y-1">
-                    <label className="text-sm font-bold text-[#475569]">اسم العيادة / النظام</label>
+                    <label className="text-sm font-bold text-[#475569]">اسم النظام</label>
                     <input 
                       type="text" required
                       value={profile.businessName}
@@ -130,6 +133,16 @@ export default function Settings() {
                       type="text" required
                       value={profile.address}
                       onChange={e => setProfile({...profile, address: e.target.value})}
+                      className="w-full border border-[#E2E8F0] rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-[#2563EB] focus:outline-none" 
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-sm font-bold text-[#475569]">السلوجان / وصف النظام (يظهر في صفحة تسجيل الدخول)</label>
+                    <input 
+                      type="text" required
+                      value={profile.description}
+                      onChange={e => setProfile({...profile, description: e.target.value})}
                       className="w-full border border-[#E2E8F0] rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-[#2563EB] focus:outline-none" 
                     />
                   </div>
