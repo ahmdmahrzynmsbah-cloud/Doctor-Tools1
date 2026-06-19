@@ -99,6 +99,26 @@ export default function Invoices() {
     }
   };
 
+  const handleMobileShare = async () => {
+    if (!downloadPreviewUrl) return;
+    try {
+      const response = await fetch(downloadPreviewUrl);
+      const blob = await response.blob();
+      const file = new File([blob], downloadPreviewFilename || 'invoice.png', { type: 'image/png' });
+      if (navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: 'فاتورة مبيعات',
+          text: `مشاركة فاتورة رقم ${downloadPreviewFilename.includes('_') ? downloadPreviewFilename.split('_')[1].split('.')[0] : ''}`
+        });
+      } else {
+        alert('المشاركة المحلية غير مدعومة في هذا المتصفح. يرجى استخدام زر التحميل العادي بالأسفل.');
+      }
+    } catch (err) {
+      console.error('Error sharing image file:', err);
+    }
+  };
+
   const handleDownloadAsImageFromList = async (inv: any) => {
     try {
       setIsSharingImage(true);
@@ -907,24 +927,34 @@ export default function Invoices() {
               </p>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 w-full mb-6">
-                <a 
-                  href={downloadPreviewUrl} 
-                  download={downloadPreviewFilename}
-                  className="flex-1 py-3 px-5 bg-[#16A34A] text-white rounded-xl font-bold hover:bg-[#15803D] flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer no-underline text-sm"
-                >
-                  <Download className="w-5 h-5" />
-                  تحميل الفاتورة
-                </a>
-                <a 
-                  href={downloadPreviewUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex-1 py-3 px-5 bg-[#2180B2] text-white rounded-xl font-bold hover:bg-[#1A6B94] flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer no-underline text-sm"
-                >
-                  <Share2 className="w-5 h-5" />
-                  عرض بالحجم الكامل
-                </a>
+              <div className="flex flex-col gap-3.5 w-full mb-6">
+                {navigator.share && (
+                  <button 
+                    onClick={handleMobileShare}
+                    className="w-full py-3 px-5 bg-[#2563EB] text-white rounded-xl font-extrabold flex items-center justify-center gap-2 shadow-md hover:bg-[#1D4ED8] transition-all cursor-pointer text-sm border-none"
+                  >
+                    <Share2 className="w-5 h-5 animate-pulse" />
+                    مشاركة أو حفظ مباشرة للهاتف (واتساب / صور)
+                  </button>
+                )}
+                <div className="flex flex-col sm:flex-row gap-3 w-full">
+                  <a 
+                    href={downloadPreviewUrl} 
+                    download={downloadPreviewFilename}
+                    className="flex-1 py-3 px-5 bg-[#16A34A] text-white rounded-xl font-bold hover:bg-[#15803D] flex items-center justify-center gap-3 shadow-md transition-all cursor-pointer no-underline text-sm"
+                  >
+                    <Download className="w-5 h-5" />
+                    تحميل للكمبيوتر / الجوال
+                  </a>
+                  <a 
+                    href={downloadPreviewUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex-1 py-3 px-5 bg-[#2180B2] text-white rounded-xl font-bold hover:bg-[#1A6B94] flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer no-underline text-sm"
+                  >
+                    عرض المعاينة بالحجم الكامل
+                  </a>
+                </div>
               </div>
 
               {/* Mobile / Alternative Instruction */}
