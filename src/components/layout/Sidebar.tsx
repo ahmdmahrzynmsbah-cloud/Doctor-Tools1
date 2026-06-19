@@ -97,17 +97,29 @@ export default function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void 
           </button>
         )}
       </nav>
-      <div className="p-4 border-t border-[#243447] bg-[#151C29] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#475569] flex items-center justify-center text-xs font-bold text-white">م</div>
-          <div>
-            <p className="text-sm font-semibold text-white">مستخدم</p>
-            <p className="text-[10px] text-[#94A3B8] uppercase tracking-wider">مدير النظام</p>
+      <div className="p-4 border-t border-[#243447] bg-[#151C29] flex flex-col gap-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#475569] flex items-center justify-center text-xs font-bold text-white">م</div>
+            <div>
+              <p className="text-sm font-semibold text-white">مستخدم</p>
+              <p className="text-[10px] text-[#94A3B8] uppercase tracking-wider">مدير النظام</p>
+            </div>
           </div>
+          <button onClick={logout} className="text-[#94A3B8] hover:text-[#DC2626] cursor-pointer p-2 flex-shrink-0 rounded-lg hover:bg-[#243447] transition-colors" title="تسجيل خروج">
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
-        <button onClick={logout} className="text-[#94A3B8] hover:text-[#DC2626] cursor-pointer p-2 flex-shrink-0 rounded-lg hover:bg-[#243447] transition-colors" title="تسجيل خروج">
-          <LogOut className="w-5 h-5" />
-        </button>
+
+        {/* Developer Branding Widget */}
+        <div className="px-3 py-2.5 bg-[#1A2332]/40 border border-[#243447] rounded-xl text-center shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)] backdrop-blur-sm">
+          <p className="text-[10px] text-[#64748B] font-mono tracking-wider font-semibold">
+            ALL RIGHTS RESERVED © 2026
+          </p>
+          <p className="text-[11px] text-[#94A3B8] font-mono mt-1">
+            Developed by <a href="https://www.facebook.com/share/1HSRJmLCAn/" target="_blank" rel="noopener noreferrer" className="text-[#38BDF8] font-black tracking-wide hover:text-[#60A5FA] transition-colors underline decoration-dotted">Fox Tech</a>
+          </p>
+        </div>
       </div>
     </aside>
   );
