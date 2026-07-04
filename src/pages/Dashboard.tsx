@@ -24,13 +24,13 @@ export default function Dashboard() {
       
       {/* Top Welcome Section */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-[#E2E8F0]">
-        <div className="text-right mb-6 md:mb-0 w-full md:w-auto order-1 md:order-2">
-           <h2 className="text-2xl md:text-3xl font-bold text-[#1E293B] mb-2 flex items-center justify-end gap-2">
+        <div className="text-right mb-6 md:mb-0 w-full md:w-auto">
+           <h2 className="text-2xl md:text-3xl font-bold text-[#1E293B] mb-2 flex items-center justify-start gap-2">
               مرحباً بك، admin <span className="text-3xl">👋</span>
            </h2>
            <p className="text-[#475569] text-sm md:text-base">نظام إدارة الأوراق المالية والمخازن لقطع غيار السيارات والميكانيكا</p>
         </div>
-        <div className="flex gap-4 w-full md:w-auto order-2 md:order-1">
+        <div className="flex gap-4 w-full md:w-auto">
            <Link to="/inventory" className="flex-1 md:flex-none justify-center bg-white border border-[#E2E8F0] text-[#1E293B] px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-[#F8FAFC] transition-colors">
                <Package className="w-5 h-5"/> المستودع
            </Link>
@@ -40,69 +40,69 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Cards Grid - matches the image order roughly */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* Stats Cards Grid - 3 on top and 3 on bottom, spacious and wide */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         
-        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-between">
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-between min-h-[140px]">
            <div>
-             <h3 className="text-xs font-bold text-[#94A3B8] mb-1">القطع بالمستودع</h3>
-             <p className="text-2xl font-black text-[#1E293B]">{inventory.length}</p>
+             <h3 className="text-sm font-bold text-[#64748B] mb-2">القطع بالمستودع</h3>
+             <p className="text-3xl font-black text-[#1E293B]">{inventory.length}</p>
            </div>
-           <div className="w-10 h-10 bg-[#EFF6FF] text-[#3B82F6] rounded-lg flex items-center justify-center shrink-0">
-             <Package className="w-5 h-5" />
+           <div className="w-12 h-12 bg-[#EFF6FF] text-[#3B82F6] rounded-xl flex items-center justify-center flex-shrink-0 min-w-[48px]" dir="ltr">
+             <Package className="w-6 h-6" />
            </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-between">
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-between min-h-[140px]">
            <div>
-             <h3 className="text-xs font-bold text-[#94A3B8] mb-1 whitespace-nowrap">مبيعات اليوم <br/><span className="text-[10px]">(الإجمالي)</span></h3>
-             <p className="text-2xl font-black text-[#10B981]">{todaySales} <span className="text-[10px] font-bold text-[#94A3B8]">ج.م</span></p>
+             <h3 className="text-sm font-bold text-[#64748B] mb-2 whitespace-nowrap">مبيعات اليوم <span className="text-xs font-normal text-[#94A3B8]">(الإجمالي)</span></h3>
+             <p className="text-3xl font-black text-[#10B981]">{todaySales} <span className="text-sm font-bold text-[#94A3B8]">ج.م</span></p>
            </div>
-           <div className="w-10 h-10 bg-[#ECFDF5] text-[#10B981] rounded-lg flex items-center justify-center shrink-0">
-             <ArrowUpRight className="w-5 h-5" />
+           <div className="w-12 h-12 bg-[#ECFDF5] text-[#10B981] rounded-xl flex items-center justify-center flex-shrink-0 min-w-[48px]" dir="ltr">
+             <ArrowUpRight className="w-6 h-6" />
            </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-between">
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-between min-h-[140px]">
            <div>
-             <h3 className="text-xs font-bold text-[#94A3B8] mb-1 whitespace-nowrap">الديون المعلقة <br/><span className="text-[10px]">(اليوم)</span></h3>
-             <p className="text-2xl font-black text-[#F59E0B]">{todayDebt} <span className="text-[10px] font-bold text-[#94A3B8]">ج.م</span></p>
+             <h3 className="text-sm font-bold text-[#64748B] mb-2 whitespace-nowrap">الديون المعلقة <span className="text-xs font-normal text-[#94A3B8]">(اليوم)</span></h3>
+             <p className="text-3xl font-black text-[#F59E0B]">{todayDebt} <span className="text-sm font-bold text-[#94A3B8]">ج.م</span></p>
            </div>
-           <div className="w-10 h-10 bg-[#FFFBEB] text-[#F59E0B] rounded-lg flex items-center justify-center shrink-0">
-             <TrendingDown className="w-5 h-5" />
+           <div className="w-12 h-12 bg-[#FFFBEB] text-[#F59E0B] rounded-xl flex items-center justify-center flex-shrink-0 min-w-[48px]" dir="ltr">
+             <TrendingDown className="w-6 h-6" />
            </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm flex flex-col justify-center gap-2">
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-[#E2E8F0] shadow-sm flex flex-col justify-between min-h-[140px]">
            <div className="flex items-center justify-between w-full">
              <div>
-               <h3 className="text-xs font-bold text-[#2180B2] mb-1">الموجود في الدرج</h3>
-               <p className="text-2xl font-black text-[#2180B2]">{todayCash} <span className="text-[10px] font-bold text-[#94A3B8]">ج.م</span></p>
+               <h3 className="text-sm font-bold text-[#2180B2] mb-2">الموجود في الدرج</h3>
+               <p className="text-3xl font-black text-[#2180B2]">{todayCash} <span className="text-sm font-bold text-[#94A3B8]">ج.م</span></p>
              </div>
-             <div className="w-10 h-10 bg-[#EFF6FF] text-[#2180B2] rounded-lg flex items-center justify-center shrink-0">
-               <Wallet className="w-5 h-5" />
+             <div className="w-12 h-12 bg-[#EFF6FF] text-[#2180B2] rounded-xl flex items-center justify-center flex-shrink-0 min-w-[48px]" dir="ltr">
+               <Wallet className="w-6 h-6" />
              </div>
            </div>
-           <p className="text-[9px] font-bold text-[#94A3B8] border-t border-[#E2E8F0] pt-1 w-full text-center">المبيعات الكاش - المصروفات: 0 ج</p>
+           <p className="text-xs font-bold text-[#64748B] border-t border-[#E2E8F0] pt-2 mt-2 w-full text-center">المبيعات الكاش - المصروفات: 0 ج</p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-between">
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-between min-h-[140px]">
            <div>
-             <h3 className="text-xs font-bold text-[#94A3B8] mb-1">الديون بكل <br/><span className="text-[10px]">الأيام</span></h3>
-             <p className="text-2xl font-black text-[#EF4444]">{allTimeDebt} <span className="text-[10px] font-bold text-[#94A3B8]">ج.م</span></p>
+             <h3 className="text-sm font-bold text-[#64748B] mb-2">الديون بكل الأيام</h3>
+             <p className="text-3xl font-black text-[#EF4444]">{allTimeDebt} <span className="text-sm font-bold text-[#94A3B8]">ج.م</span></p>
            </div>
-           <div className="w-10 h-10 bg-[#FEF2F2] text-[#EF4444] rounded-lg flex items-center justify-center shrink-0">
-             <CreditCard className="w-5 h-5" />
+           <div className="w-12 h-12 bg-[#FEF2F2] text-[#EF4444] rounded-xl flex items-center justify-center flex-shrink-0 min-w-[48px]" dir="ltr">
+             <CreditCard className="w-6 h-6" />
            </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-between relative overflow-hidden">
+        <div className="bg-white p-6 md:p-8 rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-between min-h-[140px] relative overflow-hidden">
            <div>
-             <h3 className="text-xs font-bold text-[#94A3B8] mb-1">أوشكت على <br/><span className="text-[10px]">النفاذ</span></h3>
-             <p className={`text-2xl font-black ${lowStockCount > 0 ? "text-[#EF4444]" : "text-[#F59E0B]"}`}>{lowStockCount}</p>
+             <h3 className="text-sm font-bold text-[#64748B] mb-2">أوشكت على النفاذ</h3>
+             <p className={`text-3xl font-black ${lowStockCount > 0 ? "text-[#EF4444]" : "text-[#F59E0B]"}`}>{lowStockCount}</p>
            </div>
-           <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 z-10 ${lowStockCount > 0 ? "bg-[#FEF2F2] text-[#EF4444]" : "bg-[#FFFBEB] text-[#F59E0B]"}`}>
-             <AlertTriangle className="w-5 h-5" />
+           <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 min-w-[48px] z-10 ${lowStockCount > 0 ? "bg-[#FEF2F2] text-[#EF4444]" : "bg-[#FFFBEB] text-[#F59E0B]"}`} dir="ltr">
+             <AlertTriangle className="w-6 h-6" />
            </div>
         </div>
 
@@ -171,7 +171,9 @@ export default function Dashboard() {
 
          <div className="bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-sm flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden text-center col-span-1 border-dashed">
             <div className="absolute top-6 left-6 text-[#F59E0B]">
-               <AlertTriangle className="w-5 h-5 bg-yellow-100 p-1 rounded-full text-yellow-500" />
+               <div className="w-8 h-8 bg-[#FFFBEB] rounded-full flex items-center justify-center text-[#F59E0B] flex-shrink-0 min-w-[32px]" dir="ltr">
+                  <AlertTriangle className="w-5 h-5" />
+               </div>
             </div>
             <h3 className="font-bold text-lg text-[#1E293B] mb-2 absolute top-6 right-6">تنبيهات المخزون<br/> الحرج</h3>
             

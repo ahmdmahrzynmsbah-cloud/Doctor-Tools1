@@ -78,10 +78,12 @@ export default function Sidebar({ onCloseMobile }: { onCloseMobile?: () => void 
           >
             {({ isActive }) => (
               <>
-                <item.icon
-                  className={cn("w-5 h-5", isActive ? "opacity-80" : "")}
-                  aria-hidden="true"
-                />
+                <div className="w-5 h-5 flex items-center justify-center shrink-0" dir="ltr">
+                  <item.icon
+                    className={cn("w-5 h-5", isActive ? "opacity-80" : "")}
+                    aria-hidden="true"
+                  />
+                </div>
                 <span className="font-medium">{item.name}</span>
               </>
             )}

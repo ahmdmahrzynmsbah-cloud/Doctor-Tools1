@@ -58,7 +58,7 @@ export default function AuditLog() {
             transactions.map((tx) => (
               <div key={tx.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl hover:border-[#2563EB] transition-colors">
                 <div className="flex items-start gap-4">
-                  <div className={`mt-1 w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'sale' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'bg-[#FEF2F2] text-[#DC2626]'}`}>
+                  <div className={`mt-1 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 min-w-[40px] ${tx.type === 'sale' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'bg-[#FEF2F2] text-[#DC2626]'}`} dir="ltr">
                      {tx.type === 'sale' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownLeft className="w-5 h-5" />}
                   </div>
                   <div>
