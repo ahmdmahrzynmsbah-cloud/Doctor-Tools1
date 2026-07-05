@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Search, FileText, X, Printer, Edit, Trash2, ListStart, List, Barcode, Receipt, Save, Download, MessageCircle, Share2, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { useAppData } from '@/src/context/AppDataContext';
 import InvoicePrint from '../components/InvoicePrint';
 import { collection, doc, setDoc } from 'firebase/firestore';
@@ -103,6 +104,55 @@ export default function Invoices() {
     }
   };
 
+  const downloadAsPdf = async () => {
+    if (!printRef.current || !printingInvoice) return;
+    
+    try {
+      setIsSharingImage(true);
+      const element = (printRef.current.firstElementChild || printRef.current) as HTMLElement;
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        width: 850,
+        height: element.scrollHeight || 1100,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 850,
+        windowHeight: element.scrollHeight || 1100
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      let heightLeft = pdfHeight;
+      let position = 0;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      const filename = `invoice_${printingInvoice.invoiceNumber}.pdf`;
+      pdf.save(filename);
+            
+      setIsSharingImage(false);
+    } catch (err) {
+      console.error('Error downloading invoice as PDF:', err);
+      setIsSharingImage(false);
+      alert('حدث خطأ أثناء محاولة حفظ الفاتورة كملف PDF');
+    }
+  };
+
   const handleMobileShare = async () => {
     if (!downloadPreviewUrl) return;
     try {
@@ -185,6 +235,78 @@ export default function Invoices() {
       setIsSharingImage(false);
       setSharingInvoiceId(null);
       alert("حدث خطأ أثناء محاولة المعالجة وحفظ الفاتورة كصورة: " + (err?.message || String(err)));
+    }
+  };
+
+  const handleDownloadAsPdfFromList = async (inv: any) => {
+    try {
+      setIsSharingImage(true);
+      setSharingInvoiceId(inv.id);
+
+      // Wait a bit for React to render the component in the DOM
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
+      if (!element) {
+        setIsSharingImage(false);
+        setSharingInvoiceId(null);
+        alert("حدث خطأ أثناء تحديد الفاتورة في النظام.");
+        return;
+      }
+
+      const canvas = await html2canvas(element, {
+        scale: 2, 
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: 850,
+        height: element.scrollHeight || 1000,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 850,
+        windowHeight: element.scrollHeight || 1000,
+        onclone: (clonedDoc) => {
+          const el = clonedDoc.getElementById('hidden-share-invoice-print');
+          if (el) {
+            el.style.position = 'static';
+            el.style.top = '0px';
+            el.style.left = '0px';
+            el.style.opacity = '1';
+            el.style.zIndex = '99999';
+            el.style.pointerEvents = 'auto';
+          }
+        }
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      let heightLeft = pdfHeight;
+      let position = 0;
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      const filename = `invoice_${inv.invoiceNumber}.pdf`;
+      pdf.save(filename);
+
+      setIsSharingImage(false);
+      setSharingInvoiceId(null);
+    } catch (err: any) {
+      console.error(err);
+      setIsSharingImage(false);
+      setSharingInvoiceId(null);
+      alert("حدث خطأ أثناء محاولة المعالجة وحفظ الفاتورة كملف PDF: " + (err?.message || String(err)));
     }
   };
 
@@ -470,7 +592,7 @@ export default function Invoices() {
   return (
     <>
       {printingInvoice && (
-      <div className={`fixed inset-0 z-50 overflow-y-auto print:bg-white print:p-0 bg-[#F1F5F9]`}>
+      <div className={`fixed inset-0 z-50 overflow-y-auto print:bg-white print:p-0 bg-[#F1F5F9] print:static print:h-auto print:overflow-visible print:block`}>
           <div className="p-4 flex gap-4 justify-center border-b border-[#E2E8F0] print:hidden bg-white shadow-sm sticky top-0 z-10">
             <button 
               onClick={() => {
@@ -480,6 +602,13 @@ export default function Invoices() {
             >
               <Printer className="w-5 h-5" />
               طباعة الفاتورة
+            </button>
+            <button 
+              onClick={downloadAsPdf}
+              className="px-6 py-2 bg-[#0EA5E9] text-white rounded-lg font-bold hover:bg-[#0284C7] flex items-center gap-2"
+            >
+              <Download className="w-5 h-5" />
+              تنزيل كملف PDF
             </button>
             <button 
               onClick={downloadAsImage}
@@ -947,22 +1076,29 @@ export default function Invoices() {
                             <button 
                               type="button"
                               onClick={() => {
-                                setIsPrintDirect(true);
                                 setPrintingInvoiceId(inv.id);
                               }}
                               className="p-1.5 text-[#475569] bg-white border border-[#E2E8F0] rounded-md hover:text-[#2180B2] hover:border-[#2180B2] transition-colors cursor-pointer"
-                              title="طباعة"
+                              title="طباعة (معاينة)"
                             >
                               <Printer className="w-4 h-4" />
                             </button>
+                            <button 
+                               type="button"
+                              onClick={() => handleDownloadAsPdfFromList(inv)}
+                              className="p-1.5 text-[#0EA5E9] bg-white border border-[#E2E8F0] rounded-md hover:text-[#0284C7] hover:border-[#0EA5E9] transition-colors cursor-pointer"
+                              title="تنزيل كملف PDF"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
                              <button 
                                type="button"
-                               onClick={() => handleDownloadAsImageFromList(inv)}
-                               className="p-1.5 text-[#16A34A] bg-white border border-[#E2E8F0] rounded-md hover:text-[#15803D] hover:border-[#16A34A] transition-colors cursor-pointer"
-                               title="تنزيل كصورة"
-                             >
-                               <Download className="w-4 h-4" />
-                             </button>
+                              onClick={() => handleDownloadAsImageFromList(inv)}
+                              className="p-1.5 text-[#16A34A] bg-white border border-[#E2E8F0] rounded-md hover:text-[#15803D] hover:border-[#16A34A] transition-colors cursor-pointer"
+                              title="تنزيل كصورة"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
                             <button 
                               onClick={() => handleEditClick(inv.id)}
                               className="p-1.5 text-[#475569] bg-white border border-[#E2E8F0] rounded-md hover:text-[#10B981] hover:border-[#10B981] transition-colors cursor-pointer"

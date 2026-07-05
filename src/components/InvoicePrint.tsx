@@ -88,10 +88,10 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
       </div>
 
       {/* Items Table Container */}
-      <div className="overflow-hidden rounded-2xl border border-[#E2E8F0] mb-8">
+      <div className="rounded-2xl border border-[#E2E8F0] mb-8 overflow-hidden print:overflow-visible print:border-none">
         <table className="w-full text-right border-collapse">
-          <thead>
-            <tr className="bg-[#0F172A] text-white">
+          <thead className="print:table-header-group">
+            <tr className="bg-[#0F172A] text-white print:bg-transparent print:text-black print:border-b-2 print:border-black">
               <th className="py-4 px-5 text-xs font-extrabold text-center w-16">م</th>
               <th className="py-4 px-5 text-sm font-extrabold">البيان / الصنف</th>
               <th className="py-4 px-5 text-xs font-extrabold text-center w-24">الكمية</th>
@@ -99,20 +99,20 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
               <th className="py-4 px-5 text-xs font-extrabold text-left w-36">الإجمالي</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#E2E8F0] bg-white">
+          <tbody className="divide-y divide-[#E2E8F0] bg-white print:table-row-group">
             {invoice.items.slice(0).map((item, idx) => {
               const invItem = inventory.find(i => i.id === item.itemId);
               const lineTotal = item.quantity * item.price;
               return (
-                <tr key={idx} className="hover:bg-[#F8FAFC] transition-colors duration-150">
-                  <td className="py-4 px-5 text-center font-mono font-bold text-[#64748B] text-sm">{idx + 1}</td>
+                <tr key={idx} className="hover:bg-[#F8FAFC] transition-colors duration-150 print:break-inside-avoid">
+                  <td className="py-4 px-5 text-center font-mono font-bold text-[#64748B] text-sm print:text-black">{idx + 1}</td>
                   <td className="py-4 px-5">
                     <p className="font-bold text-[#0F172A] text-md">{invItem?.name || 'صنف محذوف'}</p>
-                    {invItem?.code && <span className="font-mono text-xs text-[#94A3B8] mt-0.5 block" dir="ltr">{invItem.code}</span>}
+                    {invItem?.code && <span className="font-mono text-xs text-[#94A3B8] mt-0.5 block print:text-gray-600" dir="ltr">{invItem.code}</span>}
                   </td>
-                  <td className="py-4 px-5 text-center font-mono font-extrabold text-[#334155]">{item.quantity}</td>
-                  <td className="py-4 px-5 text-center font-mono font-bold text-[#475569]" dir="ltr">{item.price.toLocaleString()}</td>
-                  <td className="py-4 px-5 text-left font-mono font-extrabold text-[#0F172A] text-md" dir="ltr">{lineTotal.toLocaleString()} ج.م</td>
+                  <td className="py-4 px-5 text-center font-mono font-extrabold text-[#334155] print:text-black">{item.quantity}</td>
+                  <td className="py-4 px-5 text-center font-mono font-bold text-[#475569] print:text-black" dir="ltr">{item.price.toLocaleString()}</td>
+                  <td className="py-4 px-5 text-left font-mono font-extrabold text-[#0F172A] text-md print:text-black" dir="ltr">{lineTotal.toLocaleString()} ج.م</td>
                 </tr>
               );
             })}
@@ -121,7 +121,7 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
       </div>
 
       {/* Totals & Signature Section */}
-      <div className="grid grid-cols-2 gap-8 items-end mb-10 pt-4">
+      <div className="grid grid-cols-2 gap-8 items-end mb-10 pt-4 print:break-inside-avoid">
         {/* Left: Notes / Remarks */}
         <div className="bg-[#FAFDFB] rounded-2xl border border-[#DEF7EC] p-5">
           <h4 className="text-sm font-bold text-[#03543F] mb-2 flex items-center gap-1.5">
