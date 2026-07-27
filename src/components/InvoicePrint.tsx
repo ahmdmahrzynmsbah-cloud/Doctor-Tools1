@@ -13,6 +13,14 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
   const subtotal = invoice.items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
   const discountAmount = Math.max(0, subtotal - invoice.total);
 
+  const formatMixedText = (text: string) => {
+    if (!text) return text;
+    // Add a space between numbers and Arabic characters to prevent html2canvas overlapping bugs
+    return text
+      .replace(/(\d)([\u0600-\u06FF])/g, '$1 $2')
+      .replace(/([\u0600-\u06FF])(\d)/g, '$1 $2');
+  };
+
   return (
     <div 
       className="bg-white text-[#1E293B] p-6 md:p-10 w-full max-w-[850px] min-h-[1100px] shadow-lg border border-[#E2E8F0] print:border-none print:shadow-none print:w-full print:min-h-0 relative select-none font-sans mx-auto" 
@@ -106,13 +114,25 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
               return (
                 <tr key={idx} className="hover:bg-[#F8FAFC] transition-colors duration-150 print:break-inside-avoid">
                   <td className="py-4 px-5 text-center font-mono font-bold text-[#64748B] text-sm print:text-black">{idx + 1}</td>
-                  <td className="py-4 px-5">
-                    <p className="font-bold text-[#0F172A] text-md">{invItem?.name || 'صنف محذوف'}</p>
-                    {invItem?.code && <span className="font-mono text-xs text-[#94A3B8] mt-0.5 block print:text-gray-600" dir="ltr">{invItem.code}</span>}
+                  <td className="py-4 px-5 align-top text-right">
+                    <span className="font-bold text-[#0F172A] text-base">
+                      {formatMixedText(invItem?.name || 'صنف محذوف')}
+                    </span>
+                    {invItem?.code && (
+                      <>
+                        <br />
+                        <span className="font-mono text-xs text-[#94A3B8] print:text-gray-700 mt-1 inline-block" dir="ltr">{invItem.code}</span>
+                      </>
+                    )}
                   </td>
                   <td className="py-4 px-5 text-center font-mono font-extrabold text-[#334155] print:text-black">{item.quantity}</td>
                   <td className="py-4 px-5 text-center font-mono font-bold text-[#475569] print:text-black" dir="ltr">{item.price.toLocaleString()}</td>
-                  <td className="py-4 px-5 text-left font-mono font-extrabold text-[#0F172A] text-md print:text-black" dir="ltr">{lineTotal.toLocaleString()} ج.م</td>
+                  <td className="py-4 px-5 text-left font-mono font-extrabold text-[#0F172A] text-md print:text-black">
+                    <div className="inline-flex items-center gap-1" dir="ltr">
+                      <span>{lineTotal.toLocaleString()}</span>
+                      <span dir="rtl">ج.م</span>
+                    </div>
+                  </td>
                 </tr>
               );
             })}
@@ -137,9 +157,10 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
           {discountAmount > 0 && (
             <div className="flex justify-between items-center text-[#475569] border-b border-[#E2E8F0] pb-2 text-sm font-semibold">
               <span>الإجمالي قبل الخصم:</span>
-              <span className="font-mono text-md text-[#475569]" dir="ltr">
-                {subtotal.toLocaleString()} ج.م
-              </span>
+              <div className="font-mono text-md text-[#475569] inline-flex items-center gap-1" dir="ltr">
+                <span>{subtotal.toLocaleString()}</span>
+                <span dir="rtl">ج.م</span>
+              </div>
             </div>
           )}
           
@@ -154,27 +175,35 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
                 ) : ''}
                 :
               </span>
-              <span className="font-mono text-md" dir="ltr">
-                -{discountAmount.toLocaleString()} ج.م
-              </span>
+              <div className="font-mono text-md inline-flex items-center gap-1" dir="ltr">
+                <span>-{discountAmount.toLocaleString()}</span>
+                <span dir="rtl">ج.م</span>
+              </div>
             </div>
           )}
 
           <div className="flex justify-between items-center text-[#1E293B] border-b border-[#E2E8F0] pb-2 text-sm font-bold">
             <span>{invoice.isQuote ? (discountAmount > 0 ? 'إجمالي عرض السعر بعد الخصم:' : 'إجمالي عرض السعر:') : (discountAmount > 0 ? 'الإجمالي النهائي بعد الخصم:' : 'إجمالي الفاتورة:')}</span>
-            <span className="font-mono text-md font-black text-[#1E293B]" dir="ltr">{invoice.total.toLocaleString()} ج.م</span>
+            <div className="font-mono text-md font-black text-[#1E293B] inline-flex items-center gap-1" dir="ltr">
+              <span>{invoice.total.toLocaleString()}</span>
+              <span dir="rtl">ج.م</span>
+            </div>
           </div>
           {!invoice.isQuote && (
             <>
               <div className="flex justify-between items-center text-[#16A34A] border-b border-[#E2E8F0] pb-2 text-sm font-bold">
                 <span>المبلغ المدفوع:</span>
-                <span className="font-mono text-md" dir="ltr">{invoice.paid.toLocaleString()} ج.م</span>
+                <div className="font-mono text-md inline-flex items-center gap-1" dir="ltr">
+                  <span>{invoice.paid.toLocaleString()}</span>
+                  <span dir="rtl">ج.م</span>
+                </div>
               </div>
               <div className="flex justify-between items-center pt-1">
                 <span className="text-md font-black text-[#0F172A]">المبلغ المتبقي:</span>
-                <span className={`font-mono text-xl font-black ${remaining > 0 ? 'text-[#DC2626]' : 'text-[#0D9488]'}`} dir="ltr">
-                  {remaining.toLocaleString()} ج.م
-                </span>
+                <div className={`font-mono text-xl font-black ${remaining > 0 ? 'text-[#DC2626]' : 'text-[#0D9488]'} inline-flex items-center gap-1`} dir="ltr">
+                  <span>{remaining.toLocaleString()}</span>
+                  <span dir="rtl">ج.م</span>
+                </div>
               </div>
             </>
           )}

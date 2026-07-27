@@ -69,9 +69,10 @@ export default function Invoices() {
       setIsSharingImage(true);
       const element = (printRef.current.firstElementChild || printRef.current) as HTMLElement;
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
         backgroundColor: '#ffffff',
+        logging: false,
         width: 850,
         height: element.scrollHeight || 1100,
         scrollX: 0,
@@ -112,9 +113,10 @@ export default function Invoices() {
       const element = (printRef.current.firstElementChild || printRef.current) as HTMLElement;
       
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
         backgroundColor: '#ffffff',
+        logging: false,
         width: 850,
         height: element.scrollHeight || 1100,
         scrollX: 0,
@@ -179,7 +181,7 @@ export default function Invoices() {
       setSharingInvoiceId(inv.id);
 
       // Wait a bit for React to render the component in the DOM
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
       if (!element) {
@@ -190,7 +192,7 @@ export default function Invoices() {
       }
 
       const canvas = await html2canvas(element, {
-        scale: 2, // 2 is excellent quality and safe for memory limits
+        scale: 1.5, // 1.5 for better performance
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
@@ -244,7 +246,7 @@ export default function Invoices() {
       setSharingInvoiceId(inv.id);
 
       // Wait a bit for React to render the component in the DOM
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
       if (!element) {
@@ -255,7 +257,7 @@ export default function Invoices() {
       }
 
       const canvas = await html2canvas(element, {
-        scale: 2, 
+        scale: 1.5, 
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
@@ -1155,9 +1157,9 @@ export default function Invoices() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A2332]/60 backdrop-blur-sm p-4 print:hidden">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center flex flex-col items-center">
               <Loader2 className="w-10 h-10 animate-spin text-[#2180B2] mb-4" />
-              <h3 className="text-lg font-bold text-[#1E293B] mb-2 font-sans">جاري تجهيز صورة الفاتورة</h3>
+              <h3 className="text-lg font-bold text-[#1E293B] mb-2 font-sans">جاري تجهيز وتنزيل الفاتورة...</h3>
               <p className="text-[#475569] text-sm leading-relaxed text-center">
-                نقوم الآن بإنشاء نسخة عالية الجودة من الفاتورة كصورة وحفظها على جهازك...
+                يرجى الانتظار بضع ثوانٍ حتى تكتمل المعالجة
               </p>
             </div>
           </div>
