@@ -2,9 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { Plus, Search, X, Factory, ArrowDownToLine, ShoppingCart, History, Edit2, Trash2, Banknote, Printer, Share2, Loader2, MessageCircle } from 'lucide-react';
 import { useAppData, Supplier } from '@/src/context/AppDataContext';
 import html2canvas from 'html2canvas';
+import ProductSearchSelect from '../components/ProductSearchSelect';
 
 export default function Suppliers() {
-  const { suppliers, purchases, inventory, addSupplier, updateSupplier, deleteSupplier, createPurchase, recordSupplierPayment, businessProfile } = useAppData();
+  const { suppliers, purchases, inventory, addSupplier, updateSupplier, deleteSupplier, createPurchase, recordSupplierPayment, businessProfile, addInventoryItem } = useAppData();
   const [searchTerm, setSearchTerm] = useState('');
   
   const [isAddSupplierModalOpen, setIsAddSupplierModalOpen] = useState(false);
@@ -15,7 +16,7 @@ export default function Suppliers() {
   const [paymentAmount, setPaymentAmount] = useState<number | ''>('');
 
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
-  const [purchaseItems, setPurchaseItems] = useState([{ inventoryId: '', qty: 1, cost: 0 }]);
+  const [purchaseItems, setPurchaseItems] = useState<{inventoryId: string; isNew: boolean; newName: string; newSellPrice: number; qty: number; cost: number;}[]>([{ inventoryId: '', isNew: false, newName: '', newSellPrice: 0, qty: 1, cost: 0 }]);
   const [paidAmount, setPaidAmount] = useState(0);
 
   const [selectedSupplierHistory, setSelectedSupplierHistory] = useState<Supplier | null>(null);
@@ -443,21 +444,43 @@ export default function Suppliers() {
     }
   };
 
-  const handleCreatePurchase = (e: React.FormEvent) => {
+  const handleCreatePurchase = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate
-    const validItems = purchaseItems.filter(i => i.inventoryId !== '' && i.qty > 0 && i.cost > 0);
+    const validItems = purchaseItems.filter(i => 
+      ((!i.isNew && i.inventoryId !== '') || (i.isNew && i.newName.trim() !== '' && i.newSellPrice > 0)) && 
+      i.qty > 0 && i.cost > 0
+    );
+
     if (!selectedSupplierId || validItems.length === 0) return;
 
     let total = 0;
-    const finalItems = validItems.map(item => {
+    const finalItems = [];
+
+    for (const item of validItems) {
       const lineCost = item.qty * item.cost;
       total += lineCost;
-      return { itemId: item.inventoryId, quantity: item.qty, price: item.cost };
-    });
+      
+      let finalItemId = item.inventoryId;
+      if (item.isNew) {
+        finalItemId = await addInventoryItem({
+          code: `NEW-${Math.floor(Math.random() * 10000)}`,
+          name: item.newName,
+          brand: '',
+          compatibleCars: '',
+          category: 'عام',
+          storageLocation: '',
+          quantity: 0,
+          purchasePrice: item.cost,
+          sellPrice: item.newSellPrice
+        });
+      }
+      
+      finalItems.push({ itemId: finalItemId, quantity: item.qty, price: item.cost });
+    }
 
-    createPurchase({
+    await createPurchase({
       date: new Date().toISOString(),
       supplierId: selectedSupplierId,
       items: finalItems,
@@ -466,7 +489,7 @@ export default function Suppliers() {
     });
 
     setIsPurchaseModalOpen(false);
-    setPurchaseItems([{ inventoryId: '', qty: 1, cost: 0 }]);
+    setPurchaseItems([{ inventoryId: '', isNew: false, newName: '', newSellPrice: 0, qty: 1, cost: 0 }]);
     setSelectedSupplierId('');
     setPaidAmount(0);
   };
@@ -823,45 +846,104 @@ export default function Suppliers() {
                 <h4 className="font-bold text-sm text-[#1E293B] mb-3">تفاصيل البضاعة الواردة (تُضاف للمخزون فوراً)</h4>
                 <div className="space-y-3">
                   {purchaseItems.map((item, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row gap-2 bg-[#F1F5F9] p-3 rounded-lg sm:bg-transparent sm:p-0">
-                       <select 
-                         required 
-                         value={item.inventoryId}
-                         onChange={(e) => {
-                            const newItems = [...purchaseItems];
-                            newItems[idx].inventoryId = e.target.value;
-                            setPurchaseItems(newItems);
-                         }}
-                         className="flex-1 border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#10B981] focus:outline-none bg-white"
-                       >
-                         <option value="">-- الصنف --</option>
-                         {inventory.map(inv => <option key={inv.id} value={inv.id}>{inv.name} (متوفر: {inv.quantity})</option>)}
-                       </select>
+                    <div key={idx} className="flex flex-col gap-2 bg-[#F1F5F9] p-3 rounded-lg border border-[#E2E8F0]">
+                       <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-[#64748B]">الصنف #{idx + 1}</span>
+                          <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#2563EB]">
+                              <input type="checkbox" checked={item.isNew} onChange={(e) => {
+                                const newItems = [...purchaseItems];
+                                newItems[idx].isNew = e.target.checked;
+                                setPurchaseItems(newItems);
+                              }} />
+                              صنف جديد (إضافة للمخزن)
+                            </label>
+                            {purchaseItems.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPurchaseItems(purchaseItems.filter((_, i) => i !== idx));
+                                }}
+                                className="text-[#94A3B8] hover:text-[#DC2626] p-1 rounded hover:bg-[#FEE2E2] transition-colors"
+                                title="حذف الصنف"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                       </div>
+                       
+                       {item.isNew ? (
+                         <div className="flex flex-col gap-2">
+                           <input 
+                             type="text" placeholder="اسم الصنف الجديد" required
+                             value={item.newName}
+                             onChange={(e) => {
+                                const newItems = [...purchaseItems];
+                                newItems[idx].newName = e.target.value;
+                                setPurchaseItems(newItems);
+                             }}
+                             className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#10B981] focus:outline-none bg-white"
+                           />
+                           <input 
+                             type="number" min="0" placeholder="سعر البيع للجمهور" required
+                             value={item.newSellPrice || ''}
+                             onChange={(e) => {
+                                const newItems = [...purchaseItems];
+                                newItems[idx].newSellPrice = Number(e.target.value);
+                                setPurchaseItems(newItems);
+                             }}
+                             className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#10B981] focus:outline-none bg-white"
+                           />
+                         </div>
+                       ) : (
+                         <ProductSearchSelect
+                           inventory={inventory}
+                           value={item.inventoryId}
+                           required
+                           onChange={(selected) => {
+                             const newItems = [...purchaseItems];
+                             newItems[idx].inventoryId = selected ? selected.id : '';
+                             if (selected && (!newItems[idx].cost || newItems[idx].cost === 0)) {
+                               newItems[idx].cost = selected.purchasePrice || 0;
+                             }
+                             setPurchaseItems(newItems);
+                           }}
+                           placeholder="ابحث عن صنف بالاسم أو الكود أو الماركة..."
+                         />
+                       )}
+                       
                        <div className="flex gap-2">
-                         <input 
-                           type="number" min="1" placeholder="الكمية" required
-                           value={item.qty}
-                           onChange={(e) => {
-                              const newItems = [...purchaseItems];
-                              newItems[idx].qty = Number(e.target.value);
-                              setPurchaseItems(newItems);
-                           }}
-                           className="w-full sm:w-24 border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#10B981] focus:outline-none bg-white"
-                         />
-                         <input 
-                           type="number" min="0" placeholder="تكلفة الوحدة" required
-                           value={item.cost}
-                           onChange={(e) => {
-                              const newItems = [...purchaseItems];
-                              newItems[idx].cost = Number(e.target.value);
-                              setPurchaseItems(newItems);
-                           }}
-                           className="w-full sm:w-32 border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#10B981] focus:outline-none bg-white"
-                         />
+                         <div className="flex-1">
+                           <label className="text-[10px] text-[#64748B] block mb-1">الكمية الواردة</label>
+                           <input 
+                             type="number" min="1" placeholder="الكمية" required
+                             value={item.qty || ''}
+                             onChange={(e) => {
+                                const newItems = [...purchaseItems];
+                                newItems[idx].qty = Number(e.target.value);
+                                setPurchaseItems(newItems);
+                             }}
+                             className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#10B981] focus:outline-none bg-white"
+                           />
+                         </div>
+                         <div className="flex-1">
+                           <label className="text-[10px] text-[#64748B] block mb-1">تكلفة الشراء للقطعة</label>
+                           <input 
+                             type="number" min="0" placeholder="التكلفة" required
+                             value={item.cost || ''}
+                             onChange={(e) => {
+                                const newItems = [...purchaseItems];
+                                newItems[idx].cost = Number(e.target.value);
+                                setPurchaseItems(newItems);
+                             }}
+                             className="w-full border border-[#E2E8F0] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#10B981] focus:outline-none bg-white"
+                           />
+                         </div>
                        </div>
                     </div>
                   ))}
-                  <button type="button" onClick={() => setPurchaseItems([...purchaseItems, { inventoryId: '', qty: 1, cost: 0 }])} className="text-xs font-bold text-[#2563EB] hover:underline cursor-pointer">
+                  <button type="button" onClick={() => setPurchaseItems([...purchaseItems, { inventoryId: '', isNew: false, newName: '', newSellPrice: 0, qty: 1, cost: 0 }])} className="text-xs font-bold text-[#2563EB] hover:underline cursor-pointer">
                     + إضافة صنف آخر
                   </button>
                 </div>

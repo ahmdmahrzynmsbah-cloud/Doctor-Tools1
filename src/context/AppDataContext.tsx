@@ -133,7 +133,7 @@ type AppDataContextType = {
   notifications: AppNotification[];
   businessProfile: BusinessProfile;
   
-  addInventoryItem: (item: Omit<InventoryItem, 'id'>) => Promise<void>;
+  addInventoryItem: (item: Omit<InventoryItem, 'id'>) => Promise<string>;
   updateInventoryItem: (id: string, item: Omit<InventoryItem, 'id'>) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
   
@@ -228,7 +228,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return [...notifications, ...lowStockAlerts];
   }, [inventory, notifications]);
 
-  const addInventoryItem = async (item: Omit<InventoryItem, 'id'>) => {
+  const addInventoryItem = async (item: Omit<InventoryItem, 'id'>): Promise<string> => {
     try {
       // Remove any undefined properties and replace with defaults to prevent Firebase error
       const cleanedItem = Object.fromEntries(
@@ -237,6 +237,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       
       const newRef = doc(collection(db, 'users', uid, 'inventory'));
       await setDoc(newRef, { ...cleanedItem, ownerId: uid, createdAt: Date.now(), updatedAt: Date.now() });
+      return newRef.id;
     } catch (e: any) {
       console.error('Error adding inventory item:', e);
       throw new Error(e?.message || 'فشل في حفظ المنتج في قاعدة البيانات.');
@@ -510,7 +511,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const invRef = doc(db, 'users', uid, 'inventory', purItem.itemId);
       const currentItem = inventory.find(i => i.id === purItem.itemId);
       if (currentItem) {
-        batch.update(invRef, { quantity: currentItem.quantity + purItem.quantity, updatedAt: Date.now() });
+        batch.update(invRef, { quantity: currentItem.quantity + purItem.quantity, purchasePrice: purItem.price, updatedAt: Date.now() });
       }
     }
 

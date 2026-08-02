@@ -112,7 +112,7 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
               const invItem = inventory.find(i => i.id === item.itemId);
               const lineTotal = item.quantity * item.price;
               return (
-                <tr key={idx} className="hover:bg-[#F8FAFC] transition-colors duration-150 print:break-inside-avoid">
+                <tr key={idx} className="hover:bg-[#F8FAFC] transition-colors duration-150 break-inside-avoid">
                   <td className="py-4 px-5 text-center font-mono font-bold text-[#64748B] text-sm print:text-black">{idx + 1}</td>
                   <td className="py-4 px-5 align-top text-right">
                     <span className="font-bold text-[#0F172A] text-base">
@@ -141,7 +141,7 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
       </div>
 
       {/* Totals & Signature Section */}
-      <div className="grid grid-cols-2 gap-8 items-end mb-10 pt-4 print:break-inside-avoid">
+      <div className="grid grid-cols-2 gap-8 items-end mb-10 pt-4 break-inside-avoid">
         {/* Left: Notes / Remarks */}
         <div className="bg-[#FAFDFB] rounded-2xl border border-[#DEF7EC] p-5">
           <h4 className="text-sm font-bold text-[#03543F] mb-2 flex items-center gap-1.5">

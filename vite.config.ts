@@ -11,6 +11,9 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        workbox: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024
+        },
         manifest: {
           name: 'نظام إدارة قطع الغيار',
           short_name: 'المخزون',
