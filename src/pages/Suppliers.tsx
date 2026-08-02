@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Search, X, Factory, ArrowDownToLine, ShoppingCart, History, Edit2, Trash2, Banknote, Printer, Share2, Loader2, MessageCircle } from 'lucide-react';
 import { useAppData, Supplier } from '@/src/context/AppDataContext';
-import html2canvas from 'html2canvas';
+import { toCanvas } from 'html-to-image';
 import ProductSearchSelect from '../components/ProductSearchSelect';
 
 export default function Suppliers() {
@@ -144,11 +144,10 @@ export default function Suppliers() {
       element.style.height = 'auto';
       element.style.maxHeight = 'none';
 
-      const canvas = await html2canvas(element, {
-        scale: 2,
+      const canvas = await toCanvas(element, {
+        pixelRatio: 2,
         backgroundColor: '#ffffff',
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
+        cacheBust: true,
       });
 
       // Restore original styles
@@ -367,11 +366,10 @@ export default function Suppliers() {
       element.style.height = 'auto';
       element.style.maxHeight = 'none';
 
-      const canvas = await html2canvas(element, {
-        scale: 2,
+      const canvas = await toCanvas(element, {
+        pixelRatio: 2,
         backgroundColor: '#ffffff',
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
+        cacheBust: true,
       });
 
       element.style.overflow = originalOverflow;

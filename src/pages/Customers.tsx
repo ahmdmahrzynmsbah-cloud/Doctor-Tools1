@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Search, Users as UsersIcon, X, History, User, Banknote, Edit2, Trash2, Printer, MessageCircle, Share2, Loader2 } from 'lucide-react';
 import { useAppData, Customer } from '@/src/context/AppDataContext';
-import html2canvas from 'html2canvas';
+import { toCanvas } from 'html-to-image';
 
 export default function Customers() {
   const { customers, invoices, inventory, addCustomer, updateCustomer, deleteCustomer, recordCustomerPayment, businessProfile } = useAppData();
@@ -216,11 +216,10 @@ export default function Customers() {
       element.style.height = 'auto';
       element.style.maxHeight = 'none';
 
-      const canvas = await html2canvas(element, {
-        scale: 2,
+      const canvas = await toCanvas(element, {
+        pixelRatio: 2,
         backgroundColor: '#ffffff',
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
+        cacheBust: true,
       });
 
       // Restore original styles

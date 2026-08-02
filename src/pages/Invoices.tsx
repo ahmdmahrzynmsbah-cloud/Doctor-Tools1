@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Search, FileText, X, Printer, Edit, Trash2, ListStart, List, Barcode, Receipt, Save, Download, MessageCircle, Share2, Loader2 } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { toCanvas } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { useAppData } from '@/src/context/AppDataContext';
 import InvoicePrint from '../components/InvoicePrint';
@@ -62,98 +62,18 @@ export default function Invoices() {
     return new Blob([u8arr], { type: mime });
   };
 
-  const captureInvoiceCanvas = async (containerEl: HTMLElement) => {
+  const captureInvoiceCanvas = async (containerEl: HTMLElement): Promise<HTMLCanvasElement> => {
     const card = (containerEl.querySelector('#invoice-card') as HTMLElement) || 
                  (containerEl.firstElementChild as HTMLElement) || 
                  containerEl;
 
-    // Deep clone the card node to detach it from scrolled modal containers or flex parents
-    const clone = card.cloneNode(true) as HTMLElement;
-
-    // Copy computed styles from original DOM node and all descendants onto clone
-    const sourceNodes = Array.from(card.querySelectorAll('*')) as HTMLElement[];
-    const targetNodes = Array.from(clone.querySelectorAll('*')) as HTMLElement[];
-
-    const cardStyle = window.getComputedStyle(card);
-    clone.style.color = cardStyle.color;
-    clone.style.backgroundColor = cardStyle.backgroundColor || '#ffffff';
-    clone.style.fontFamily = cardStyle.fontFamily;
-    clone.style.position = 'static';
-    clone.style.margin = '0 auto';
-    clone.style.transform = 'none';
-    clone.style.width = '850px';
-    clone.style.minWidth = '850px';
-    clone.style.maxWidth = '850px';
-    clone.style.boxSizing = 'border-box';
-    clone.style.opacity = '1';
-    clone.style.visibility = 'visible';
-
-    for (let i = 0; i < sourceNodes.length; i++) {
-      const s = sourceNodes[i];
-      const t = targetNodes[i];
-      if (!s || !t) continue;
-
-      const cs = window.getComputedStyle(s);
-      t.style.color = cs.color;
-      if (cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent') {
-        t.style.backgroundColor = cs.backgroundColor;
-      }
-      if (cs.borderTopColor && cs.borderTopColor !== 'rgba(0, 0, 0, 0)') t.style.borderTopColor = cs.borderTopColor;
-      if (cs.borderBottomColor && cs.borderBottomColor !== 'rgba(0, 0, 0, 0)') t.style.borderBottomColor = cs.borderBottomColor;
-      if (cs.borderLeftColor && cs.borderLeftColor !== 'rgba(0, 0, 0, 0)') t.style.borderLeftColor = cs.borderLeftColor;
-      if (cs.borderRightColor && cs.borderRightColor !== 'rgba(0, 0, 0, 0)') t.style.borderRightColor = cs.borderRightColor;
-
-      t.style.borderTopStyle = cs.borderTopStyle;
-      t.style.borderBottomStyle = cs.borderBottomStyle;
-      t.style.borderLeftStyle = cs.borderLeftStyle;
-      t.style.borderRightStyle = cs.borderRightStyle;
-
-      t.style.borderTopWidth = cs.borderTopWidth;
-      t.style.borderBottomWidth = cs.borderBottomWidth;
-      t.style.borderLeftWidth = cs.borderLeftWidth;
-      t.style.borderRightWidth = cs.borderRightWidth;
-
-      t.style.fontSize = cs.fontSize;
-      t.style.fontWeight = cs.fontWeight;
-      t.style.fontFamily = cs.fontFamily;
-      t.style.lineHeight = cs.lineHeight;
-      t.style.textAlign = cs.textAlign;
-      t.style.borderRadius = cs.borderRadius;
-      t.style.padding = cs.padding;
-      t.style.margin = cs.margin;
-      t.style.display = cs.display;
-      t.style.flexDirection = cs.flexDirection;
-      t.style.justifyContent = cs.justifyContent;
-      t.style.alignItems = cs.alignItems;
+    // Ensure fonts are loaded
+    if (document.fonts) {
+      await document.fonts.ready;
     }
 
-    // Create a clean, top-level staging container
-    const wrapper = document.createElement('div');
-    wrapper.id = 'html2canvas-staging-wrapper';
-    wrapper.style.position = 'fixed';
-    wrapper.style.top = '0px';
-    wrapper.style.left = '0px';
-    wrapper.style.width = '850px';
-    wrapper.style.backgroundColor = '#ffffff';
-    wrapper.style.zIndex = '9999999';
-    wrapper.style.opacity = '1';
-    wrapper.style.visibility = 'visible';
-    wrapper.style.pointerEvents = 'none';
-    wrapper.style.margin = '0';
-    wrapper.style.padding = '0';
-
-    wrapper.appendChild(clone);
-    document.body.appendChild(wrapper);
-
-    // Save scroll state and scroll to top (0,0)
-    const prevScrollX = window.scrollX;
-    const prevScrollY = window.scrollY;
-    window.scrollTo(0, 0);
-
-    // Wait for DOM reflow and image decoding
-    await new Promise((resolve) => setTimeout(resolve, 150));
-
-    const images = Array.from(wrapper.querySelectorAll('img'));
+    // Ensure all images are loaded
+    const images = Array.from(card.querySelectorAll('img'));
     await Promise.all(
       images.map((img) => {
         if (img.complete) return Promise.resolve();
@@ -164,38 +84,19 @@ export default function Invoices() {
       })
     );
 
-    const cardWidth = 850;
-    const cardHeight = clone.offsetHeight || 1100;
-
-    let canvas: HTMLCanvasElement;
-    try {
-      canvas = await html2canvas(clone, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        imageTimeout: 0,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: cardWidth,
-        height: cardHeight,
-        windowWidth: cardWidth,
-        windowHeight: cardHeight,
-        x: 0,
-        y: 0,
-        scrollX: 0,
-        scrollY: 0,
-        onclone: (clonedDoc) => {
-          // Remove all stylesheet/style nodes from clonedDoc head so html2canvas doesn't fail on Tailwind v4 color-mix syntax
-          const styles = clonedDoc.head.querySelectorAll('style, link[rel="stylesheet"]');
-          styles.forEach((s) => s.remove());
-        },
-      });
-    } finally {
-      if (wrapper.parentNode) {
-        document.body.removeChild(wrapper);
-      }
-      window.scrollTo(prevScrollX, prevScrollY);
-    }
+    // Capture directly using html-to-image toCanvas
+    const canvas = await toCanvas(card, {
+      quality: 0.98,
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      cacheBust: true,
+      style: {
+        margin: '0',
+        transform: 'none',
+        opacity: '1',
+        visibility: 'visible',
+      },
+    });
 
     return canvas;
   };
@@ -1223,7 +1124,7 @@ export default function Invoices() {
           if (!inv) return null;
           const cust = customers.find(c => c.id === inv.customerId);
           return (
-            <div style={{ position: 'fixed', top: '0px', left: '0px', width: '850px', zIndex: -100, opacity: 0.01, pointerEvents: 'none', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
+            <div style={{ position: 'fixed', top: '0px', left: '-9999px', width: '850px', zIndex: 9999, opacity: 1, visibility: 'visible', pointerEvents: 'none', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
               <InvoicePrint 
                 invoice={inv} 
                 customer={cust} 
