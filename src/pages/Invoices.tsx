@@ -115,26 +115,37 @@ export default function Invoices() {
     const pdfWidth = pdf.internal.pageSize.getWidth(); // 210 mm
     const pdfHeight = pdf.internal.pageSize.getHeight(); // 297 mm
 
-    const imgData = canvas.toDataURL('image/png');
+    const imgData = canvas.toDataURL('image/png', 1.0);
     const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
-    if (imgHeight <= pdfHeight) {
-      // Single page
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight, undefined, 'FAST');
-    } else {
-      // Multi-page layout
-      let heightLeft = imgHeight;
-      let position = 0;
+    // Single A4 page threshold: fit standard invoices (up to 1.35x A4 height) on a single page perfectly
+    if (imgHeight <= pdfHeight * 1.35) {
+      let printWidth = pdfWidth;
+      let printHeight = imgHeight;
 
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 0) {
-        position -= pdfHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
-        heightLeft -= pdfHeight;
+      if (printHeight > pdfHeight) {
+        printHeight = pdfHeight;
+        printWidth = (canvas.width * pdfHeight) / canvas.height;
       }
+
+      const x = (pdfWidth - printWidth) / 2;
+      const y = 0;
+
+      console.log('5. PDF image position:', { x, y, printWidth, printHeight, pdfWidth, pdfHeight });
+
+      pdf.addImage(imgData, 'PNG', x, y, printWidth, printHeight, undefined, 'FAST');
+    } else {
+      console.log('5. PDF image position (dynamic page):', { x: 0, y: 0, printWidth: pdfWidth, printHeight: imgHeight });
+      // Dynamic single continuous page for long invoices to ensure zero content slicing or blank pages
+      const dynamicPdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [pdfWidth, imgHeight],
+        compress: true
+      });
+      dynamicPdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight, undefined, 'FAST');
+      dynamicPdf.save(filename);
+      return;
     }
 
     pdf.save(filename);
@@ -226,7 +237,7 @@ export default function Invoices() {
       setSharingInvoiceId(inv.id);
 
       // Wait for React to mount the hidden preview element
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
       if (!element) {
@@ -1076,7 +1087,7 @@ export default function Invoices() {
 
         {/* State Loader Overlay for background image conversion */}
         {isSharingImage && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A2332]/60 backdrop-blur-sm p-4 print:hidden">
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#1A2332]/80 backdrop-blur-sm p-4 print:hidden">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center flex flex-col items-center">
               <Loader2 className="w-10 h-10 animate-spin text-[#2180B2] mb-4" />
               <h3 className="text-lg font-bold text-[#1E293B] mb-2 font-sans">جاري تجهيز وتنزيل الفاتورة...</h3>
@@ -1093,7 +1104,7 @@ export default function Invoices() {
           if (!inv) return null;
           const cust = customers.find(c => c.id === inv.customerId);
           return (
-            <div style={{ position: 'fixed', top: '0px', left: '0px', width: '850px', zIndex: -9999, opacity: 1, visibility: 'visible', pointerEvents: 'none', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
+            <div style={{ position: 'fixed', top: '0px', left: '0px', width: '850px', zIndex: 9999999, opacity: 1, visibility: 'visible', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
               <InvoicePrint 
                 invoice={inv} 
                 customer={cust} 

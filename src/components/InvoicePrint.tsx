@@ -24,7 +24,7 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
   return (
     <div 
       id="invoice-card"
-      className="bg-white text-[#1E293B] p-8 md:p-10 w-[800px] sm:w-[850px] max-w-none min-h-[1050px] shadow-lg border border-[#E2E8F0] print:border-none print:shadow-none print:w-full print:max-w-none print:min-h-0 relative select-none font-sans mx-auto shrink-0" 
+      className="bg-white text-[#1E293B] p-8 md:p-10 w-[850px] max-w-none min-h-[1150px] shadow-lg border border-[#E2E8F0] print:border-none print:shadow-none print:w-full print:max-w-none print:min-h-0 relative select-none font-sans mx-auto shrink-0 flex flex-col justify-between" 
       dir="rtl"
       style={{ fontFamily: '"Cairo", system-ui, sans-serif', backgroundColor: '#ffffff', color: '#1E293B', width: '850px' }}
     >
