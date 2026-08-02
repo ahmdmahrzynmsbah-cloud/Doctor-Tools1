@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Search, FileText, X, Printer, Edit, Trash2, ListStart, List, Barcode, Receipt, Save, Download, MessageCircle, Share2, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import html2pdf from 'html2pdf.js';
+import { jsPDF } from 'jspdf';
 import { useAppData } from '@/src/context/AppDataContext';
 import InvoicePrint from '../components/InvoicePrint';
 import { collection, doc, setDoc } from 'firebase/firestore';
@@ -62,38 +62,47 @@ export default function Invoices() {
     return new Blob([u8arr], { type: mime });
   };
 
+  const captureInvoiceCanvas = async (element: HTMLElement) => {
+    const target = (element.querySelector('#invoice-card') as HTMLElement) || (element.firstElementChild as HTMLElement) || element;
+    
+    const targetWidth = target.offsetWidth || 850;
+    const targetHeight = target.offsetHeight || 1130;
+
+    return await html2canvas(target, {
+      scale: 1.5,
+      useCORS: true,
+      allowTaint: true,
+      imageTimeout: 0,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: targetWidth,
+      height: targetHeight,
+      windowWidth: targetWidth,
+      windowHeight: targetHeight,
+      x: 0,
+      y: 0,
+      scrollX: 0,
+      scrollY: 0,
+      onclone: (clonedDoc) => {
+        const card = clonedDoc.querySelector('#invoice-card') as HTMLElement;
+        if (card) {
+          card.style.position = 'static';
+          card.style.margin = '0 auto';
+          card.style.transform = 'none';
+          card.style.width = `${targetWidth}px`;
+          card.style.boxSizing = 'border-box';
+        }
+      }
+    });
+  };
+
   const downloadAsImage = async () => {
     if (!printRef.current || !printingInvoice) return;
     
     try {
       setIsSharingImage(true);
       const element = (printRef.current.firstElementChild || printRef.current) as HTMLElement;
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        windowWidth: 850,
-        onclone: (clonedDoc) => {
-          // Find the invoice container and force its width so it never squishes
-          const el = clonedDoc.getElementById('invoice-print-area') || clonedDoc.getElementById('hidden-share-invoice-print');
-          if (el) {
-            el.style.width = '850px';
-            el.style.minWidth = '850px';
-            el.style.position = 'static';
-            el.style.top = '0';
-            el.style.left = '0';
-            el.style.opacity = '1';
-            el.style.transform = 'none';
-          }
-          const printInner = el ? ((el.firstElementChild as HTMLElement) || el) : null;
-          if (printInner) {
-            printInner.style.width = '850px';
-            printInner.style.minWidth = '850px';
-            printInner.style.maxWidth = '850px';
-          }
-        }
-      });
+      const canvas = await captureInvoiceCanvas(element);
       
       const image = canvas.toDataURL('image/png');
       const blob = dataURLtoBlob(image);
@@ -103,7 +112,6 @@ export default function Invoices() {
       setDownloadPreviewUrl(blobUrl);
       setDownloadPreviewFilename(filename);
 
-      // Programmatic download try
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = filename;
@@ -119,31 +127,79 @@ export default function Invoices() {
     }
   };
 
+  const generateInvoicePdf = async (element: HTMLElement, filename: string) => {
+    const canvas = await captureInvoiceCanvas(element);
+
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth(); // 210 mm
+    const pdfHeight = pdf.internal.pageSize.getHeight(); // 297 mm
+
+    // Ideal canvas height for 1 full A4 page at canvas.width
+    const pageCanvasHeight = Math.floor(canvas.width * (pdfHeight / pdfWidth));
+
+    if (canvas.height <= pageCanvasHeight * 1.25) {
+      // Single page PDF (or scaled to fit 1 page)
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      if (imgHeight <= pdfHeight) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight, undefined, 'FAST');
+      } else {
+        const scaleFactor = pdfHeight / imgHeight;
+        const scaledWidth = pdfWidth * scaleFactor;
+        const xOffset = (pdfWidth - scaledWidth) / 2;
+        pdf.addImage(imgData, 'JPEG', xOffset, 0, scaledWidth, pdfHeight, undefined, 'FAST');
+      }
+    } else {
+      // Multi-page slicing: create a canvas slice for each A4 page
+      let currentY = 0;
+      let pageIndex = 0;
+
+      while (currentY < canvas.height) {
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+
+        const sliceHeight = Math.min(pageCanvasHeight, canvas.height - currentY);
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = pageCanvasHeight;
+        const ctx = pageCanvas.getContext('2d');
+
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          ctx.drawImage(
+            canvas,
+            0, currentY, canvas.width, sliceHeight,
+            0, 0, canvas.width, sliceHeight
+          );
+        }
+
+        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.92);
+        pdf.addImage(pageImgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+
+        currentY += sliceHeight;
+        pageIndex++;
+      }
+    }
+
+    pdf.save(filename);
+  };
+
   const downloadAsPdf = async () => {
     if (!printRef.current || !printingInvoice) return;
     
     try {
       setIsSharingImage(true);
       const element = (printRef.current.firstElementChild || printRef.current) as HTMLElement;
-      
-      const opt = {
-        margin: [5, 5, 5, 5] as [number, number, number, number],
-        filename: `invoice_${printingInvoice.invoiceNumber}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-        pagebreak: { mode: ['css', 'legacy'], avoid: '.break-inside-avoid' }
-      };
-      
-      // Ensure elements with print:break-inside-avoid also have the regular class
-      const breakElements = element.querySelectorAll('.break-inside-avoid');
-      breakElements.forEach(el => { (el as HTMLElement).style.pageBreakInside = 'avoid'; (el as HTMLElement).style.breakInside = 'avoid'; });
-      
-      await html2pdf().set(opt).from(element).save();
-      
-      // Clean up
-      breakElements.forEach(el => { (el as HTMLElement).style.pageBreakInside = ''; (el as HTMLElement).style.breakInside = ''; });
-      
+      await generateInvoicePdf(element, `invoice_${printingInvoice.invoiceNumber}.pdf`);
       setIsSharingImage(false);
     } catch (err) {
       console.error('Error downloading invoice as PDF:', err);
@@ -177,8 +233,8 @@ export default function Invoices() {
       setIsSharingImage(true);
       setSharingInvoiceId(inv.id);
 
-      // Wait a bit for React to render the component in the DOM
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      // Fast render wait
+      await new Promise((resolve) => setTimeout(resolve, 30));
 
       const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
       if (!element) {
@@ -188,32 +244,7 @@ export default function Invoices() {
         return;
       }
 
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        windowWidth: 850,
-        onclone: (clonedDoc) => {
-          // Find the invoice container and force its width so it never squishes
-          const el = clonedDoc.getElementById('invoice-print-area') || clonedDoc.getElementById('hidden-share-invoice-print');
-          if (el) {
-            el.style.width = '850px';
-            el.style.minWidth = '850px';
-            el.style.position = 'static';
-            el.style.top = '0';
-            el.style.left = '0';
-            el.style.opacity = '1';
-            el.style.transform = 'none';
-          }
-          const printInner = el ? ((el.firstElementChild as HTMLElement) || el) : null;
-          if (printInner) {
-            printInner.style.width = '850px';
-            printInner.style.minWidth = '850px';
-            printInner.style.maxWidth = '850px';
-          }
-        }
-      });
+      const canvas = await captureInvoiceCanvas(element);
 
       const image = canvas.toDataURL('image/png');
       const blob = dataURLtoBlob(image);
@@ -245,7 +276,7 @@ export default function Invoices() {
       setIsSharingImage(true);
       setSharingInvoiceId(inv.id);
 
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 30));
 
       const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
       if (!element) {
@@ -255,33 +286,8 @@ export default function Invoices() {
         return;
       }
 
-      const opt = {
-        margin: [5, 5, 5, 5] as [number, number, number, number],
-        filename: `invoice_${inv.invoiceNumber}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { 
-            scale: 2, 
-            useCORS: true, 
-            logging: false,
-            windowWidth: 850
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-        pagebreak: { mode: ['css', 'legacy'], avoid: '.break-inside-avoid' }
-      };
-      
-      const printInner = element.firstElementChild || element;
-      if (printInner) {
-         (printInner as HTMLElement).style.width = '850px';
-         (printInner as HTMLElement).style.minWidth = '850px';
-         (printInner as HTMLElement).style.maxWidth = '850px';
-      }
-      
-      const breakElements = element.querySelectorAll('.break-inside-avoid');
-      breakElements.forEach(el => { (el as HTMLElement).style.pageBreakInside = 'avoid'; (el as HTMLElement).style.breakInside = 'avoid'; });
-
-      await html2pdf().set(opt).from(element).save();
-      
-      breakElements.forEach(el => { (el as HTMLElement).style.pageBreakInside = ''; (el as HTMLElement).style.breakInside = ''; });
+      const printTarget = (element.firstElementChild || element) as HTMLElement;
+      await generateInvoicePdf(printTarget, `invoice_${inv.invoiceNumber}.pdf`);
 
       setIsSharingImage(false);
       setSharingInvoiceId(null);
