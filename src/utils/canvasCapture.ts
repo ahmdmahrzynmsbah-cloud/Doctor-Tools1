@@ -1,6 +1,45 @@
 import html2canvas from 'html2canvas';
 
+let dummyCtx: CanvasRenderingContext2D | null = null;
+
+function getDummyCtx(): CanvasRenderingContext2D | null {
+  if (!dummyCtx && typeof document !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    dummyCtx = canvas.getContext('2d');
+  }
+  return dummyCtx;
+}
+
+/**
+ * Converts modern CSS color syntax (e.g. oklch, color(srgb...)) into standard hex/rgba
+ * strings using the browser's native canvas color evaluation engine.
+ */
+export function convertOklchToRgb(colorStr: string): string {
+  if (!colorStr || typeof colorStr !== 'string') return colorStr;
+  if (!colorStr.includes('oklch') && !colorStr.includes('color(')) return colorStr;
+
+  const ctx = getDummyCtx();
+  if (!ctx) return colorStr;
+
+  return colorStr.replace(/(oklch\([^)]+\)|color\([^)]+\))/gi, (match) => {
+    try {
+      ctx.fillStyle = '#000000';
+      ctx.fillStyle = match;
+      const converted = ctx.fillStyle;
+      if (converted) {
+        return converted;
+      }
+    } catch (e) {
+      // ignore parsing errors
+    }
+    return match;
+  });
+}
+
 export async function captureElementToCanvas(element: HTMLElement, customWidth = 850): Promise<HTMLCanvasElement> {
+  // Ensure web fonts are fully loaded before capturing
   if (document.fonts) {
     try {
       await document.fonts.ready;
@@ -15,7 +54,7 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth =
                (element.firstElementChild as HTMLElement) ||
                element;
 
-  // Deep clone node
+  // Deep clone card node
   const clone = card.cloneNode(true) as HTMLElement;
 
   // Copy computed styles from original DOM elements onto clone so it renders independently of external CSS rules
@@ -31,8 +70,10 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth =
     for (let j = 0; j < computed.length; j++) {
       const prop = computed[j];
       if (prop.startsWith('--')) continue; // skip CSS custom variables that confuse html2canvas
-      const val = computed.getPropertyValue(prop);
+
+      let val = computed.getPropertyValue(prop);
       if (val && val !== 'initial' && val !== 'unset') {
+        val = convertOklchToRgb(val);
         try {
           t.style.setProperty(prop, val, computed.getPropertyPriority(prop));
         } catch (e) {
@@ -40,11 +81,24 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth =
         }
       }
     }
+
+    // Explicitly guarantee essential visual properties
+    t.style.color = convertOklchToRgb(computed.color);
+    t.style.backgroundColor = convertOklchToRgb(computed.backgroundColor);
+    t.style.borderColor = convertOklchToRgb(computed.borderColor);
+    t.style.opacity = computed.opacity || '1';
+    t.style.visibility = computed.visibility || 'visible';
+
+    const tagName = s.tagName.toLowerCase();
+    if (tagName === 'svg' || s.parentElement?.tagName.toLowerCase() === 'svg') {
+      t.style.fill = convertOklchToRgb(computed.fill);
+      t.style.stroke = convertOklchToRgb(computed.stroke);
+    }
   }
 
-  // Ensure top-level clone is fully opaque and visible
+  // Ensure top-level clone is fully opaque, visible and properly styled
   clone.id = 'pdf-export-active-card';
-  clone.style.position = 'static';
+  clone.style.position = 'relative';
   clone.style.top = '0px';
   clone.style.left = '0px';
   clone.style.margin = '0 auto';
@@ -73,6 +127,7 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth =
   wrapper.style.visibility = 'visible';
   wrapper.style.pointerEvents = 'none';
   wrapper.style.overflow = 'visible';
+  wrapper.dir = 'rtl';
 
   wrapper.appendChild(clone);
   document.body.appendChild(wrapper);
@@ -90,10 +145,10 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth =
   );
 
   // Short delay for layout settle
-  await new Promise((res) => setTimeout(res, 100));
+  await new Promise((res) => setTimeout(res, 120));
 
   const targetWidth = customWidth;
-  const targetHeight = clone.offsetHeight || 1100;
+  const targetHeight = Math.max(clone.offsetHeight, clone.scrollHeight, 1050);
 
   let canvas: HTMLCanvasElement;
   try {
@@ -112,9 +167,22 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth =
       scrollX: 0,
       scrollY: 0,
       onclone: (clonedDoc) => {
-        // Remove style elements from clonedDoc so html2canvas relies on inlined computed styles and never crashes on Tailwind v4 CSS
+        // Remove style elements that contain tailwind v4 @theme/@import rules to prevent html2canvas crash
         const styles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-        styles.forEach((s) => s.remove());
+        styles.forEach((s) => {
+          if (
+            s.textContent?.includes('tailwindcss') ||
+            s.textContent?.includes('@theme') ||
+            s.getAttribute('href')?.includes('tailwind')
+          ) {
+            s.remove();
+          }
+        });
+
+        // Ensure Cairo font is explicitly available in clonedDoc
+        const fontStyle = clonedDoc.createElement('style');
+        fontStyle.textContent = `@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap'); * { font-family: "Cairo", system-ui, sans-serif !important; }`;
+        clonedDoc.head.appendChild(fontStyle);
       },
     });
   } finally {
