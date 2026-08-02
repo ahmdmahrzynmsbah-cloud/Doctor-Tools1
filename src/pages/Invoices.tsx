@@ -62,35 +62,42 @@ export default function Invoices() {
     return new Blob([u8arr], { type: mime });
   };
 
-  const captureInvoiceCanvas = async (element: HTMLElement) => {
-    const target = (element.querySelector('#invoice-card') as HTMLElement) || (element.firstElementChild as HTMLElement) || element;
-    
-    const targetWidth = target.offsetWidth || 850;
-    const targetHeight = target.offsetHeight || 1130;
+  const captureInvoiceCanvas = async (containerEl: HTMLElement) => {
+    const target = (containerEl.querySelector('#invoice-card') as HTMLElement) || (containerEl.firstElementChild as HTMLElement) || containerEl;
 
     return await html2canvas(target, {
-      scale: 1.5,
+      scale: 2,
       useCORS: true,
       allowTaint: true,
       imageTimeout: 0,
       backgroundColor: '#ffffff',
       logging: false,
-      width: targetWidth,
-      height: targetHeight,
-      windowWidth: targetWidth,
-      windowHeight: targetHeight,
-      x: 0,
-      y: 0,
       scrollX: 0,
       scrollY: 0,
       onclone: (clonedDoc) => {
-        const card = clonedDoc.querySelector('#invoice-card') as HTMLElement;
+        const hiddenParent = clonedDoc.getElementById('hidden-share-invoice-print');
+        if (hiddenParent) {
+          hiddenParent.style.position = 'static';
+          hiddenParent.style.left = '0';
+          hiddenParent.style.top = '0';
+          hiddenParent.style.width = '850px';
+          hiddenParent.style.opacity = '1';
+          hiddenParent.style.visibility = 'visible';
+          hiddenParent.style.zIndex = '9999';
+          hiddenParent.style.pointerEvents = 'auto';
+        }
+
+        const card = (clonedDoc.querySelector('#invoice-card') as HTMLElement) || (clonedDoc.body.firstElementChild as HTMLElement);
         if (card) {
           card.style.position = 'static';
           card.style.margin = '0 auto';
           card.style.transform = 'none';
-          card.style.width = `${targetWidth}px`;
+          card.style.width = '850px';
+          card.style.minWidth = '850px';
+          card.style.maxWidth = '850px';
           card.style.boxSizing = 'border-box';
+          card.style.opacity = '1';
+          card.style.visibility = 'visible';
         }
       }
     });
@@ -1142,7 +1149,7 @@ export default function Invoices() {
           if (!inv) return null;
           const cust = customers.find(c => c.id === inv.customerId);
           return (
-            <div style={{ position: 'fixed', top: '0px', left: '0px', width: '850px', zIndex: -10, opacity: 0.99, pointerEvents: 'none', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
+            <div style={{ position: 'fixed', top: '0px', left: '-9999px', width: '850px', zIndex: 1, opacity: 1, pointerEvents: 'none', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
               <InvoicePrint 
                 invoice={inv} 
                 customer={cust} 
