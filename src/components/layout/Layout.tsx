@@ -18,7 +18,7 @@ export default function Layout() {
       )}
       
       {/* Sidebar wrapper */}
-      <div className={`fixed inset-y-0 right-0 z-30 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`fixed inset-y-0 right-0 z-30 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'} print:hidden`}>
         <Sidebar onCloseMobile={() => setIsMobileMenuOpen(false)} />
       </div>
 
