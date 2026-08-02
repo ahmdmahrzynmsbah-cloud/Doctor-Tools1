@@ -555,13 +555,6 @@ export default function Invoices() {
               طباعة {printingInvoice.isQuote ? 'عرض السعر' : 'الفاتورة'}
             </button>
             <button 
-              onClick={downloadAsPdf}
-              className="px-4 sm:px-6 py-2 bg-[#0EA5E9] text-white rounded-lg text-sm font-bold hover:bg-[#0284C7] flex items-center gap-1.5 cursor-pointer shadow-sm"
-            >
-              <Download className="w-4 h-4 sm:w-5 sm:h-5" />
-              تحميل PDF
-            </button>
-            <button 
               onClick={downloadAsImage}
               className="px-4 sm:px-6 py-2 bg-[#16A34A] text-white rounded-lg text-sm font-bold hover:bg-[#15803D] flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
