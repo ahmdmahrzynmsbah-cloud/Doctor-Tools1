@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import { Menu, X } from 'lucide-react';
+import SystemUpdateModal from '../SystemUpdateModal';
 
 export default function Layout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-[#F0F4F8] print:bg-white text-[#1E293B] font-sans overflow-hidden print:overflow-visible print:h-auto print:block" dir="rtl">
+      {/* System Update Announcement Popup */}
+      <SystemUpdateModal />
+
       {/* Mobile overlay */}
       {isMobileMenuOpen && (
         <div 
