@@ -575,39 +575,39 @@ export default function Invoices() {
   return (
     <>
       {printingInvoice && (
-      <div className={`fixed inset-0 z-50 overflow-y-auto print:bg-white print:p-0 bg-[#F1F5F9] print:static print:h-auto print:overflow-visible print:block`}>
-          <div className="p-4 flex gap-4 justify-center border-b border-[#E2E8F0] print:hidden bg-white shadow-sm sticky top-0 z-10">
+        <div className={`fixed inset-0 z-50 overflow-y-auto print:bg-white print:p-0 bg-[#F1F5F9] print:static print:h-auto print:overflow-visible print:block`}>
+          <div className="p-3 sm:p-4 flex flex-wrap sm:flex-nowrap gap-2 sm:gap-4 justify-center items-center border-b border-[#E2E8F0] print:hidden bg-white shadow-sm sticky top-0 z-10">
             <button 
               onClick={() => {
                 setTimeout(() => window.print(), 100);
               }}
-              className="px-6 py-2 bg-[#2180B2] text-white rounded-lg font-bold hover:bg-[#1A6B94] flex items-center gap-2"
+              className="px-4 sm:px-6 py-2 bg-[#2180B2] text-white rounded-lg text-sm font-bold hover:bg-[#1A6B94] flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
-              <Printer className="w-5 h-5" />
-              طباعة الفاتورة
+              <Printer className="w-4 h-4 sm:w-5 sm:h-5" />
+              طباعة {printingInvoice.isQuote ? 'عرض السعر' : 'الفاتورة'}
             </button>
             <button 
               onClick={downloadAsPdf}
-              className="px-6 py-2 bg-[#0EA5E9] text-white rounded-lg font-bold hover:bg-[#0284C7] flex items-center gap-2"
+              className="px-4 sm:px-6 py-2 bg-[#0EA5E9] text-white rounded-lg text-sm font-bold hover:bg-[#0284C7] flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
-              <Download className="w-5 h-5" />
-              تنزيل كملف PDF
+              <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+              تحميل PDF
             </button>
             <button 
               onClick={downloadAsImage}
-              className="px-6 py-2 bg-[#16A34A] text-white rounded-lg font-bold hover:bg-[#15803D] flex items-center gap-2"
+              className="px-4 sm:px-6 py-2 bg-[#16A34A] text-white rounded-lg text-sm font-bold hover:bg-[#15803D] flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
-              <Download className="w-5 h-5" />
-              تنزيل كصورة
+              <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+              تحميل كصورة
             </button>
             <button 
               onClick={() => setPrintingInvoiceId(null)}
-              className="px-6 py-2 bg-[#F1F5F9] text-[#475569] rounded-lg font-bold hover:bg-[#E2E8F0]"
+              className="px-4 sm:px-6 py-2 bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0] rounded-lg text-sm font-bold hover:bg-[#E2E8F0] cursor-pointer"
             >
               عودة
             </button>
           </div>
-          <div id="invoice-print-area" className="p-8 flex justify-center print:p-0" ref={printRef}>
+          <div id="invoice-print-area" className="p-2 sm:p-8 flex justify-start sm:justify-center overflow-x-auto print:p-0 print:overflow-visible" ref={printRef}>
             <InvoicePrint 
               invoice={printingInvoice} 
               customer={printingCustomer} 
@@ -985,13 +985,13 @@ export default function Invoices() {
                             );
                           })}
                         </tbody>
-                     </table>
-                   </div>
-                 )}
-               </div>
-            </div>
-          </form>
-        )}
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </form>
+          )}
 
         {/* List View */}
         {viewMode === 'list' && (
@@ -1010,7 +1010,7 @@ export default function Invoices() {
                 />
               </div>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-right">
                 <thead className="bg-[#F7FAFC] text-xs font-bold text-[#475569] uppercase tracking-wider">
@@ -1062,25 +1062,9 @@ export default function Invoices() {
                                 setPrintingInvoiceId(inv.id);
                               }}
                               className="p-1.5 text-[#475569] bg-white border border-[#E2E8F0] rounded-md hover:text-[#2180B2] hover:border-[#2180B2] transition-colors cursor-pointer"
-                              title="طباعة (معاينة)"
+                              title="طباعة ومعاينة الفاتورة"
                             >
                               <Printer className="w-4 h-4" />
-                            </button>
-                            <button 
-                               type="button"
-                              onClick={() => handleDownloadAsPdfFromList(inv)}
-                              className="p-1.5 text-[#0EA5E9] bg-white border border-[#E2E8F0] rounded-md hover:text-[#0284C7] hover:border-[#0EA5E9] transition-colors cursor-pointer"
-                              title="تنزيل كملف PDF"
-                            >
-                              <Download className="w-4 h-4" />
-                            </button>
-                             <button 
-                               type="button"
-                              onClick={() => handleDownloadAsImageFromList(inv)}
-                              className="p-1.5 text-[#16A34A] bg-white border border-[#E2E8F0] rounded-md hover:text-[#15803D] hover:border-[#16A34A] transition-colors cursor-pointer"
-                              title="تنزيل كصورة"
-                            >
-                              <Download className="w-4 h-4" />
                             </button>
                             <button 
                               onClick={() => handleEditClick(inv.id)}
@@ -1098,7 +1082,7 @@ export default function Invoices() {
                             </button>
                           </td>
                         </tr>
-                      )
+                      );
                     })
                   )}
                 </tbody>
