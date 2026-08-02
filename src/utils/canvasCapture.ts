@@ -1,28 +1,6 @@
-import { toPng } from 'html-to-image';
-
-function dataUrlToCanvas(dataUrl: string): Promise<HTMLCanvasElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-      }
-      resolve(canvas);
-    };
-    img.onerror = (err) => reject(err);
-    img.src = dataUrl;
-  });
-}
+import html2canvas from 'html2canvas';
 
 export async function captureElementToCanvas(element: HTMLElement, customWidth = 850): Promise<HTMLCanvasElement> {
-  // Ensure web fonts are fully loaded
   if (document.fonts) {
     try {
       await document.fonts.ready;
@@ -37,16 +15,38 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth =
                (element.firstElementChild as HTMLElement) ||
                element;
 
-  // Deep clone card node
+  // Deep clone node
   const clone = card.cloneNode(true) as HTMLElement;
 
-  // Explicitly reset positioning on clone so it sits cleanly at top-left
+  // Copy computed styles from original DOM elements onto clone so it renders independently of external CSS rules
+  const sourceNodes = [card, ...Array.from(card.querySelectorAll('*'))] as HTMLElement[];
+  const targetNodes = [clone, ...Array.from(clone.querySelectorAll('*'))] as HTMLElement[];
+
+  for (let i = 0; i < sourceNodes.length; i++) {
+    const s = sourceNodes[i];
+    const t = targetNodes[i];
+    if (!s || !t) continue;
+
+    const computed = window.getComputedStyle(s);
+    for (let j = 0; j < computed.length; j++) {
+      const prop = computed[j];
+      if (prop.startsWith('--')) continue; // skip CSS custom variables that confuse html2canvas
+      const val = computed.getPropertyValue(prop);
+      if (val && val !== 'initial' && val !== 'unset') {
+        try {
+          t.style.setProperty(prop, val, computed.getPropertyPriority(prop));
+        } catch (e) {
+          // ignore invalid properties
+        }
+      }
+    }
+  }
+
+  // Ensure top-level clone is fully opaque and visible
   clone.id = 'pdf-export-active-card';
-  clone.style.position = 'relative';
+  clone.style.position = 'static';
   clone.style.top = '0px';
   clone.style.left = '0px';
-  clone.style.right = 'auto';
-  clone.style.bottom = 'auto';
   clone.style.margin = '0 auto';
   clone.style.transform = 'none';
   clone.style.width = `${customWidth}px`;
@@ -59,20 +59,7 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth =
   clone.style.visibility = 'visible';
   clone.style.display = 'block';
 
-  // Reset negative offsets on any child nodes inside clone
-  const allNodes = Array.from(clone.querySelectorAll('*')) as HTMLElement[];
-  allNodes.forEach((node) => {
-    if (node.style) {
-      if (node.style.position === 'fixed' || node.style.position === 'absolute') {
-        const leftVal = parseInt(node.style.left, 10);
-        const topVal = parseInt(node.style.top, 10);
-        if (!isNaN(leftVal) && leftVal < -100) node.style.left = '0px';
-        if (!isNaN(topVal) && topVal < -100) node.style.top = '0px';
-      }
-    }
-  });
-
-  // Staging wrapper attached to document.body at top-left
+  // Staging wrapper attached to document.body
   const wrapper = document.createElement('div');
   wrapper.id = 'export-staging-container';
   wrapper.style.position = 'fixed';
@@ -102,55 +89,39 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth =
     })
   );
 
-  // Delay for browser reflow
-  await new Promise((res) => setTimeout(res, 200));
+  // Short delay for layout settle
+  await new Promise((res) => setTimeout(res, 100));
 
-  const contentHeight = clone.offsetHeight || 1100;
+  const targetWidth = customWidth;
+  const targetHeight = clone.offsetHeight || 1100;
 
+  let canvas: HTMLCanvasElement;
   try {
-    let dataUrl: string;
-    try {
-      dataUrl = await toPng(clone, {
-        quality: 0.98,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        width: customWidth,
-        height: contentHeight,
-        cacheBust: true,
-        style: {
-          margin: '0',
-          transform: 'none',
-          left: '0px',
-          top: '0px',
-          position: 'relative',
-          opacity: '1',
-          visibility: 'visible',
-        },
-      });
-    } catch (primaryErr) {
-      console.warn('toPng primary attempt failed, retrying without cacheBust...', primaryErr);
-      dataUrl = await toPng(clone, {
-        quality: 0.98,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        width: customWidth,
-        height: contentHeight,
-        style: {
-          margin: '0',
-          transform: 'none',
-          left: '0px',
-          top: '0px',
-          position: 'relative',
-          opacity: '1',
-          visibility: 'visible',
-        },
-      });
-    }
-
-    return await dataUrlToCanvas(dataUrl);
+    canvas = await html2canvas(clone, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: targetWidth,
+      height: targetHeight,
+      windowWidth: targetWidth,
+      windowHeight: targetHeight,
+      x: 0,
+      y: 0,
+      scrollX: 0,
+      scrollY: 0,
+      onclone: (clonedDoc) => {
+        // Remove style elements from clonedDoc so html2canvas relies on inlined computed styles and never crashes on Tailwind v4 CSS
+        const styles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
+        styles.forEach((s) => s.remove());
+      },
+    });
   } finally {
     if (wrapper.parentNode) {
       document.body.removeChild(wrapper);
     }
   }
+
+  return canvas;
 }
