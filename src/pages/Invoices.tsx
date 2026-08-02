@@ -139,6 +139,37 @@ export default function Invoices() {
         y: 0,
         scrollX: 0,
         scrollY: 0,
+        onclone: (clonedDoc) => {
+          // Clean style tags from color-mix functions that cause html2canvas to fail
+          const styleTags = clonedDoc.querySelectorAll('style');
+          styleTags.forEach((styleTag) => {
+            if (styleTag.textContent) {
+              styleTag.textContent = styleTag.textContent.replace(/color-mix\(in srgb,\s*([^,\s)]+)[^)]*\)/g, '$1');
+            }
+          });
+
+          // Inline computed styles on all cloned elements
+          const cardInClone = clonedDoc.querySelector('#invoice-card') || clonedDoc.body;
+          if (cardInClone) {
+            const allNodes = cardInClone.querySelectorAll('*');
+            allNodes.forEach((node) => {
+              const el = node as HTMLElement;
+              if (!el.style) return;
+              const computed = clonedDoc.defaultView?.getComputedStyle(el) || window.getComputedStyle(el);
+              if (computed) {
+                if (computed.color && computed.color !== 'transparent' && computed.color !== 'rgba(0, 0, 0, 0)' && !el.style.color) {
+                  el.style.color = computed.color;
+                }
+                if (computed.backgroundColor && computed.backgroundColor !== 'transparent' && computed.backgroundColor !== 'rgba(0, 0, 0, 0)' && !el.style.backgroundColor) {
+                  el.style.backgroundColor = computed.backgroundColor;
+                }
+                if (computed.borderColor && computed.borderColor !== 'transparent' && computed.borderColor !== 'rgba(0, 0, 0, 0)' && !el.style.borderColor) {
+                  el.style.borderColor = computed.borderColor;
+                }
+              }
+            });
+          }
+        }
       });
     } finally {
       if (wrapper.parentNode) {
@@ -195,24 +226,24 @@ export default function Invoices() {
     const pdfWidth = pdf.internal.pageSize.getWidth(); // 210 mm
     const pdfHeight = pdf.internal.pageSize.getHeight(); // 297 mm
 
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const imgData = canvas.toDataURL('image/png');
     const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
     if (imgHeight <= pdfHeight) {
       // Single page
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight, undefined, 'FAST');
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight, undefined, 'FAST');
     } else {
       // Multi-page layout
       let heightLeft = imgHeight;
       let position = 0;
 
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
       heightLeft -= pdfHeight;
 
       while (heightLeft > 0) {
         position -= pdfHeight;
         pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
         heightLeft -= pdfHeight;
       }
     }
