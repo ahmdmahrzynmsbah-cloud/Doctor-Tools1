@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Search, FileText, X, Printer, Edit, Trash2, ListStart, List, Barcode, Receipt, Save, Download, MessageCircle, Share2, Loader2 } from 'lucide-react';
-import { toCanvas } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { useAppData } from '@/src/context/AppDataContext';
 import InvoicePrint from '../components/InvoicePrint';
 import { collection, doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { captureElementToCanvas } from '../utils/canvasCapture';
 
 export default function Invoices() {
   const { invoices, customers, inventory, businessProfile, createInvoice, updateInvoice, deleteInvoice, addCustomer } = useAppData();
@@ -67,38 +67,7 @@ export default function Invoices() {
                  (containerEl.firstElementChild as HTMLElement) || 
                  containerEl;
 
-    // Ensure fonts are loaded
-    if (document.fonts) {
-      await document.fonts.ready;
-    }
-
-    // Ensure all images are loaded
-    const images = Array.from(card.querySelectorAll('img'));
-    await Promise.all(
-      images.map((img) => {
-        if (img.complete) return Promise.resolve();
-        return new Promise((res) => {
-          img.onload = res;
-          img.onerror = res;
-        });
-      })
-    );
-
-    // Capture directly using html-to-image toCanvas
-    const canvas = await toCanvas(card, {
-      quality: 0.98,
-      pixelRatio: 2,
-      backgroundColor: '#ffffff',
-      cacheBust: true,
-      style: {
-        margin: '0',
-        transform: 'none',
-        opacity: '1',
-        visibility: 'visible',
-      },
-    });
-
-    return canvas;
+    return await captureElementToCanvas(card, 850);
   };
 
   const downloadAsImage = async () => {

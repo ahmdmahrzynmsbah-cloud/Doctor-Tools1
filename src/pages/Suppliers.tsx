@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Search, X, Factory, ArrowDownToLine, ShoppingCart, History, Edit2, Trash2, Banknote, Printer, Share2, Loader2, MessageCircle } from 'lucide-react';
 import { useAppData, Supplier } from '@/src/context/AppDataContext';
-import { toCanvas } from 'html-to-image';
 import ProductSearchSelect from '../components/ProductSearchSelect';
+import { captureElementToCanvas } from '../utils/canvasCapture';
 
 export default function Suppliers() {
   const { suppliers, purchases, inventory, addSupplier, updateSupplier, deleteSupplier, createPurchase, recordSupplierPayment, businessProfile, addInventoryItem } = useAppData();
@@ -140,16 +140,6 @@ export default function Suppliers() {
         parent.style.overflow = 'visible';
       }
 
-      element.style.overflow = 'visible';
-      element.style.height = 'auto';
-      element.style.maxHeight = 'none';
-
-      const canvas = await toCanvas(element, {
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        cacheBust: true,
-      });
-
       // Restore original styles
       element.style.overflow = originalOverflow;
       element.style.height = originalHeight;
@@ -159,6 +149,8 @@ export default function Suppliers() {
         parent.style.maxHeight = parentOriginalMaxHeight;
         parent.style.overflow = parentOriginalOverflow;
       }
+
+      const canvas = await captureElementToCanvas(element);
       
       canvas.toBlob(async (blob) => {
         if (!blob) {
@@ -362,24 +354,12 @@ export default function Suppliers() {
         parent.style.overflow = 'visible';
       }
 
-      element.style.overflow = 'visible';
-      element.style.height = 'auto';
-      element.style.maxHeight = 'none';
-
-      const canvas = await toCanvas(element, {
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        cacheBust: true,
-      });
-
-      element.style.overflow = originalOverflow;
-      element.style.height = originalHeight;
-      element.style.maxHeight = originalMaxHeight;
-
       if (parent) {
         parent.style.maxHeight = parentOriginalMaxHeight;
         parent.style.overflow = parentOriginalOverflow;
       }
+
+      const canvas = await captureElementToCanvas(element);
       
       canvas.toBlob(async (blob) => {
         if (!blob) {

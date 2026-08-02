@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Search, Users as UsersIcon, X, History, User, Banknote, Edit2, Trash2, Printer, MessageCircle, Share2, Loader2 } from 'lucide-react';
 import { useAppData, Customer } from '@/src/context/AppDataContext';
-import { toCanvas } from 'html-to-image';
+import { captureElementToCanvas } from '../utils/canvasCapture';
 
 export default function Customers() {
   const { customers, invoices, inventory, addCustomer, updateCustomer, deleteCustomer, recordCustomerPayment, businessProfile } = useAppData();
@@ -212,25 +212,12 @@ export default function Customers() {
         parent.style.overflow = 'visible';
       }
 
-      element.style.overflow = 'visible';
-      element.style.height = 'auto';
-      element.style.maxHeight = 'none';
-
-      const canvas = await toCanvas(element, {
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        cacheBust: true,
-      });
-
-      // Restore original styles
-      element.style.overflow = originalOverflow;
-      element.style.height = originalHeight;
-      element.style.maxHeight = originalMaxHeight;
-
       if (parent) {
         parent.style.maxHeight = parentOriginalMaxHeight;
         parent.style.overflow = parentOriginalOverflow;
       }
+
+      const canvas = await captureElementToCanvas(element);
       
       canvas.toBlob(async (blob) => {
         if (!blob) {
