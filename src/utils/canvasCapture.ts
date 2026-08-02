@@ -1,69 +1,96 @@
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 
-export async function captureElementToCanvas(element: HTMLElement, customWidth?: number): Promise<HTMLCanvasElement> {
-  // Ensure fonts are loaded
-  if (document.fonts) {
-    await document.fonts.ready;
-  }
-
-  // Deep clone node
-  const clone = element.cloneNode(true) as HTMLElement;
-
-  // Copy computed styles from original DOM elements onto clone so it renders independently of Tailwind stylesheet
-  const sourceNodes = [element, ...Array.from(element.querySelectorAll('*'))] as HTMLElement[];
-  const targetNodes = [clone, ...Array.from(clone.querySelectorAll('*'))] as HTMLElement[];
-
-  for (let i = 0; i < sourceNodes.length; i++) {
-    const s = sourceNodes[i];
-    const t = targetNodes[i];
-    if (!s || !t) continue;
-
-    const computed = window.getComputedStyle(s);
-    for (let j = 0; j < computed.length; j++) {
-      const prop = computed[j];
-      if (prop.startsWith('--')) continue; // skip custom variables that confuse html2canvas
-      const val = computed.getPropertyValue(prop);
-      if (val && val !== 'initial' && val !== 'unset') {
-        try {
-          t.style.setProperty(prop, val, computed.getPropertyPriority(prop));
-        } catch (e) {
-          // ignore invalid properties
-        }
+function dataUrlToCanvas(dataUrl: string): Promise<HTMLCanvasElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
       }
+      resolve(canvas);
+    };
+    img.onerror = (err) => reject(err);
+    img.src = dataUrl;
+  });
+}
+
+export async function captureElementToCanvas(element: HTMLElement, customWidth = 850): Promise<HTMLCanvasElement> {
+  // Ensure web fonts are fully loaded
+  if (document.fonts) {
+    try {
+      await document.fonts.ready;
+    } catch (e) {
+      // ignore font loading errors
     }
   }
 
-  const targetWidth = customWidth || element.offsetWidth || 850;
+  // Extract actual invoice card or target element
+  const card = (element.querySelector('#invoice-card') as HTMLElement) ||
+               (element.id === 'invoice-card' ? element : null) ||
+               (element.firstElementChild as HTMLElement) ||
+               element;
 
-  // Explicitly set clone layout overrides
-  clone.style.position = 'static';
+  // Deep clone card node
+  const clone = card.cloneNode(true) as HTMLElement;
+
+  // Explicitly reset positioning on clone so it sits cleanly at top-left
+  clone.id = 'pdf-export-active-card';
+  clone.style.position = 'relative';
+  clone.style.top = '0px';
+  clone.style.left = '0px';
+  clone.style.right = 'auto';
+  clone.style.bottom = 'auto';
   clone.style.margin = '0 auto';
   clone.style.transform = 'none';
-  clone.style.width = `${targetWidth}px`;
-  clone.style.minWidth = `${targetWidth}px`;
-  clone.style.maxWidth = `${targetWidth}px`;
+  clone.style.width = `${customWidth}px`;
+  clone.style.minWidth = `${customWidth}px`;
+  clone.style.maxWidth = `${customWidth}px`;
   clone.style.boxSizing = 'border-box';
   clone.style.backgroundColor = '#ffffff';
+  clone.style.color = '#1E293B';
   clone.style.opacity = '1';
   clone.style.visibility = 'visible';
+  clone.style.display = 'block';
 
-  // Staging container
+  // Reset negative offsets on any child nodes inside clone
+  const allNodes = Array.from(clone.querySelectorAll('*')) as HTMLElement[];
+  allNodes.forEach((node) => {
+    if (node.style) {
+      if (node.style.position === 'fixed' || node.style.position === 'absolute') {
+        const leftVal = parseInt(node.style.left, 10);
+        const topVal = parseInt(node.style.top, 10);
+        if (!isNaN(leftVal) && leftVal < -100) node.style.left = '0px';
+        if (!isNaN(topVal) && topVal < -100) node.style.top = '0px';
+      }
+    }
+  });
+
+  // Staging wrapper attached to document.body at top-left
   const wrapper = document.createElement('div');
-  wrapper.id = 'html2canvas-staging-wrapper';
+  wrapper.id = 'export-staging-container';
   wrapper.style.position = 'fixed';
   wrapper.style.top = '0px';
   wrapper.style.left = '0px';
-  wrapper.style.width = `${targetWidth}px`;
+  wrapper.style.width = `${customWidth}px`;
+  wrapper.style.height = 'auto';
+  wrapper.style.zIndex = '9999999';
   wrapper.style.backgroundColor = '#ffffff';
-  wrapper.style.zIndex = '999999';
   wrapper.style.opacity = '1';
   wrapper.style.visibility = 'visible';
   wrapper.style.pointerEvents = 'none';
+  wrapper.style.overflow = 'visible';
 
   wrapper.appendChild(clone);
   document.body.appendChild(wrapper);
 
-  // Ensure images are fully loaded inside the staging clone
+  // Ensure images in clone are loaded
   const images = Array.from(wrapper.querySelectorAll('img'));
   await Promise.all(
     images.map((img) => {
@@ -75,37 +102,55 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth?:
     })
   );
 
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  // Delay for browser reflow
+  await new Promise((res) => setTimeout(res, 200));
 
-  const targetHeight = clone.offsetHeight || 1100;
+  const contentHeight = clone.offsetHeight || 1100;
 
-  let canvas: HTMLCanvasElement;
   try {
-    canvas = await html2canvas(clone, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      width: targetWidth,
-      height: targetHeight,
-      windowWidth: targetWidth,
-      windowHeight: targetHeight,
-      x: 0,
-      y: 0,
-      scrollX: 0,
-      scrollY: 0,
-      onclone: (clonedDoc) => {
-        // Remove all stylesheet/style nodes from clonedDoc so html2canvas relies on inlined computed styles and never crashes on Tailwind v4 CSS
-        const styles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-        styles.forEach((s) => s.remove());
-      },
-    });
+    let dataUrl: string;
+    try {
+      dataUrl = await toPng(clone, {
+        quality: 0.98,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        width: customWidth,
+        height: contentHeight,
+        cacheBust: true,
+        style: {
+          margin: '0',
+          transform: 'none',
+          left: '0px',
+          top: '0px',
+          position: 'relative',
+          opacity: '1',
+          visibility: 'visible',
+        },
+      });
+    } catch (primaryErr) {
+      console.warn('toPng primary attempt failed, retrying without cacheBust...', primaryErr);
+      dataUrl = await toPng(clone, {
+        quality: 0.98,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        width: customWidth,
+        height: contentHeight,
+        style: {
+          margin: '0',
+          transform: 'none',
+          left: '0px',
+          top: '0px',
+          position: 'relative',
+          opacity: '1',
+          visibility: 'visible',
+        },
+      });
+    }
+
+    return await dataUrlToCanvas(dataUrl);
   } finally {
     if (wrapper.parentNode) {
       document.body.removeChild(wrapper);
     }
   }
-
-  return canvas;
 }
