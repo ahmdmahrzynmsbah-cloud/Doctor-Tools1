@@ -70,10 +70,67 @@ export default function Invoices() {
     // Deep clone the card node to detach it from scrolled modal containers or flex parents
     const clone = card.cloneNode(true) as HTMLElement;
 
-    // Create a clean, off-screen top-level staging container
+    // Copy computed styles from original DOM node and all descendants onto clone
+    const sourceNodes = Array.from(card.querySelectorAll('*')) as HTMLElement[];
+    const targetNodes = Array.from(clone.querySelectorAll('*')) as HTMLElement[];
+
+    const cardStyle = window.getComputedStyle(card);
+    clone.style.color = cardStyle.color;
+    clone.style.backgroundColor = cardStyle.backgroundColor || '#ffffff';
+    clone.style.fontFamily = cardStyle.fontFamily;
+    clone.style.position = 'static';
+    clone.style.margin = '0 auto';
+    clone.style.transform = 'none';
+    clone.style.width = '850px';
+    clone.style.minWidth = '850px';
+    clone.style.maxWidth = '850px';
+    clone.style.boxSizing = 'border-box';
+    clone.style.opacity = '1';
+    clone.style.visibility = 'visible';
+
+    for (let i = 0; i < sourceNodes.length; i++) {
+      const s = sourceNodes[i];
+      const t = targetNodes[i];
+      if (!s || !t) continue;
+
+      const cs = window.getComputedStyle(s);
+      t.style.color = cs.color;
+      if (cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent') {
+        t.style.backgroundColor = cs.backgroundColor;
+      }
+      if (cs.borderTopColor && cs.borderTopColor !== 'rgba(0, 0, 0, 0)') t.style.borderTopColor = cs.borderTopColor;
+      if (cs.borderBottomColor && cs.borderBottomColor !== 'rgba(0, 0, 0, 0)') t.style.borderBottomColor = cs.borderBottomColor;
+      if (cs.borderLeftColor && cs.borderLeftColor !== 'rgba(0, 0, 0, 0)') t.style.borderLeftColor = cs.borderLeftColor;
+      if (cs.borderRightColor && cs.borderRightColor !== 'rgba(0, 0, 0, 0)') t.style.borderRightColor = cs.borderRightColor;
+
+      t.style.borderTopStyle = cs.borderTopStyle;
+      t.style.borderBottomStyle = cs.borderBottomStyle;
+      t.style.borderLeftStyle = cs.borderLeftStyle;
+      t.style.borderRightStyle = cs.borderRightStyle;
+
+      t.style.borderTopWidth = cs.borderTopWidth;
+      t.style.borderBottomWidth = cs.borderBottomWidth;
+      t.style.borderLeftWidth = cs.borderLeftWidth;
+      t.style.borderRightWidth = cs.borderRightWidth;
+
+      t.style.fontSize = cs.fontSize;
+      t.style.fontWeight = cs.fontWeight;
+      t.style.fontFamily = cs.fontFamily;
+      t.style.lineHeight = cs.lineHeight;
+      t.style.textAlign = cs.textAlign;
+      t.style.borderRadius = cs.borderRadius;
+      t.style.padding = cs.padding;
+      t.style.margin = cs.margin;
+      t.style.display = cs.display;
+      t.style.flexDirection = cs.flexDirection;
+      t.style.justifyContent = cs.justifyContent;
+      t.style.alignItems = cs.alignItems;
+    }
+
+    // Create a clean, top-level staging container
     const wrapper = document.createElement('div');
     wrapper.id = 'html2canvas-staging-wrapper';
-    wrapper.style.position = 'absolute';
+    wrapper.style.position = 'fixed';
     wrapper.style.top = '0px';
     wrapper.style.left = '0px';
     wrapper.style.width = '850px';
@@ -85,22 +142,10 @@ export default function Invoices() {
     wrapper.style.margin = '0';
     wrapper.style.padding = '0';
 
-    // Format clone
-    clone.style.position = 'static';
-    clone.style.margin = '0 auto';
-    clone.style.transform = 'none';
-    clone.style.width = '850px';
-    clone.style.minWidth = '850px';
-    clone.style.maxWidth = '850px';
-    clone.style.boxSizing = 'border-box';
-    clone.style.backgroundColor = '#ffffff';
-    clone.style.opacity = '1';
-    clone.style.visibility = 'visible';
-
     wrapper.appendChild(clone);
     document.body.appendChild(wrapper);
 
-    // Save scroll state and scroll to top (0,0) to prevent viewport offsets in html2canvas
+    // Save scroll state and scroll to top (0,0)
     const prevScrollX = window.scrollX;
     const prevScrollY = window.scrollY;
     window.scrollTo(0, 0);
@@ -140,36 +185,10 @@ export default function Invoices() {
         scrollX: 0,
         scrollY: 0,
         onclone: (clonedDoc) => {
-          // Clean style tags from color-mix functions that cause html2canvas to fail
-          const styleTags = clonedDoc.querySelectorAll('style');
-          styleTags.forEach((styleTag) => {
-            if (styleTag.textContent) {
-              styleTag.textContent = styleTag.textContent.replace(/color-mix\(in srgb,\s*([^,\s)]+)[^)]*\)/g, '$1');
-            }
-          });
-
-          // Inline computed styles on all cloned elements
-          const cardInClone = clonedDoc.querySelector('#invoice-card') || clonedDoc.body;
-          if (cardInClone) {
-            const allNodes = cardInClone.querySelectorAll('*');
-            allNodes.forEach((node) => {
-              const el = node as HTMLElement;
-              if (!el.style) return;
-              const computed = clonedDoc.defaultView?.getComputedStyle(el) || window.getComputedStyle(el);
-              if (computed) {
-                if (computed.color && computed.color !== 'transparent' && computed.color !== 'rgba(0, 0, 0, 0)' && !el.style.color) {
-                  el.style.color = computed.color;
-                }
-                if (computed.backgroundColor && computed.backgroundColor !== 'transparent' && computed.backgroundColor !== 'rgba(0, 0, 0, 0)' && !el.style.backgroundColor) {
-                  el.style.backgroundColor = computed.backgroundColor;
-                }
-                if (computed.borderColor && computed.borderColor !== 'transparent' && computed.borderColor !== 'rgba(0, 0, 0, 0)' && !el.style.borderColor) {
-                  el.style.borderColor = computed.borderColor;
-                }
-              }
-            });
-          }
-        }
+          // Remove all stylesheet/style nodes from clonedDoc head so html2canvas doesn't fail on Tailwind v4 color-mix syntax
+          const styles = clonedDoc.head.querySelectorAll('style, link[rel="stylesheet"]');
+          styles.forEach((s) => s.remove());
+        },
       });
     } finally {
       if (wrapper.parentNode) {
