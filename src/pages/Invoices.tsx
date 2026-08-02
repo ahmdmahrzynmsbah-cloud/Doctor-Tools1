@@ -63,9 +63,56 @@ export default function Invoices() {
   };
 
   const captureInvoiceCanvas = async (containerEl: HTMLElement) => {
-    const target = (containerEl.querySelector('#invoice-card') as HTMLElement) || (containerEl.firstElementChild as HTMLElement) || containerEl;
+    const card = (containerEl.querySelector('#invoice-card') as HTMLElement) || 
+                 (containerEl.firstElementChild as HTMLElement) || 
+                 containerEl;
 
-    return await html2canvas(target, {
+    // Clone node deeply to detach from scrolled modals or offscreen containers
+    const clone = card.cloneNode(true) as HTMLElement;
+
+    // Create a temporary visible staging container at top-left of document
+    const staging = document.createElement('div');
+    staging.style.position = 'absolute';
+    staging.style.top = '0px';
+    staging.style.left = '0px';
+    staging.style.width = '850px';
+    staging.style.backgroundColor = '#ffffff';
+    staging.style.zIndex = '999999';
+    staging.style.opacity = '1';
+    staging.style.visibility = 'visible';
+    staging.style.pointerEvents = 'none';
+
+    // Format clone
+    clone.style.position = 'static';
+    clone.style.margin = '0 auto';
+    clone.style.transform = 'none';
+    clone.style.width = '850px';
+    clone.style.minWidth = '850px';
+    clone.style.maxWidth = '850px';
+    clone.style.boxSizing = 'border-box';
+    clone.style.opacity = '1';
+    clone.style.visibility = 'visible';
+
+    staging.appendChild(clone);
+    document.body.appendChild(staging);
+
+    // Wait for browser layout and image decoding
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const images = Array.from(staging.querySelectorAll('img'));
+    await Promise.all(
+      images.map((img) => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((res) => {
+          img.onload = res;
+          img.onerror = res;
+        });
+      })
+    );
+
+    const targetHeight = clone.offsetHeight || 1100;
+
+    const canvas = await html2canvas(clone, {
       scale: 2,
       useCORS: true,
       allowTaint: true,
@@ -74,33 +121,19 @@ export default function Invoices() {
       logging: false,
       scrollX: 0,
       scrollY: 0,
-      onclone: (clonedDoc) => {
-        const hiddenParent = clonedDoc.getElementById('hidden-share-invoice-print');
-        if (hiddenParent) {
-          hiddenParent.style.position = 'static';
-          hiddenParent.style.left = '0';
-          hiddenParent.style.top = '0';
-          hiddenParent.style.width = '850px';
-          hiddenParent.style.opacity = '1';
-          hiddenParent.style.visibility = 'visible';
-          hiddenParent.style.zIndex = '9999';
-          hiddenParent.style.pointerEvents = 'auto';
-        }
-
-        const card = (clonedDoc.querySelector('#invoice-card') as HTMLElement) || (clonedDoc.body.firstElementChild as HTMLElement);
-        if (card) {
-          card.style.position = 'static';
-          card.style.margin = '0 auto';
-          card.style.transform = 'none';
-          card.style.width = '850px';
-          card.style.minWidth = '850px';
-          card.style.maxWidth = '850px';
-          card.style.boxSizing = 'border-box';
-          card.style.opacity = '1';
-          card.style.visibility = 'visible';
-        }
-      }
+      x: 0,
+      y: 0,
+      width: 850,
+      height: targetHeight,
+      windowWidth: 850,
+      windowHeight: targetHeight,
     });
+
+    if (staging.parentNode) {
+      document.body.removeChild(staging);
+    }
+
+    return canvas;
   };
 
   const downloadAsImage = async () => {
@@ -1149,7 +1182,7 @@ export default function Invoices() {
           if (!inv) return null;
           const cust = customers.find(c => c.id === inv.customerId);
           return (
-            <div style={{ position: 'fixed', top: '0px', left: '-9999px', width: '850px', zIndex: 1, opacity: 1, pointerEvents: 'none', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
+            <div style={{ position: 'fixed', top: '0px', left: '0px', width: '850px', zIndex: -100, opacity: 0.01, pointerEvents: 'none', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
               <InvoicePrint 
                 invoice={inv} 
                 customer={cust} 
