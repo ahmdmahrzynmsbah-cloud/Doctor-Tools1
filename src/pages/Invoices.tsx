@@ -67,20 +67,23 @@ export default function Invoices() {
                  (containerEl.firstElementChild as HTMLElement) || 
                  containerEl;
 
-    // Clone node deeply to detach from scrolled modals or offscreen containers
+    // Deep clone the card node to detach it from scrolled modal containers or flex parents
     const clone = card.cloneNode(true) as HTMLElement;
 
-    // Create a temporary visible staging container at top-left of document
-    const staging = document.createElement('div');
-    staging.style.position = 'absolute';
-    staging.style.top = '0px';
-    staging.style.left = '0px';
-    staging.style.width = '850px';
-    staging.style.backgroundColor = '#ffffff';
-    staging.style.zIndex = '999999';
-    staging.style.opacity = '1';
-    staging.style.visibility = 'visible';
-    staging.style.pointerEvents = 'none';
+    // Create a clean, off-screen top-level staging container
+    const wrapper = document.createElement('div');
+    wrapper.id = 'html2canvas-staging-wrapper';
+    wrapper.style.position = 'absolute';
+    wrapper.style.top = '0px';
+    wrapper.style.left = '0px';
+    wrapper.style.width = '850px';
+    wrapper.style.backgroundColor = '#ffffff';
+    wrapper.style.zIndex = '9999999';
+    wrapper.style.opacity = '1';
+    wrapper.style.visibility = 'visible';
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.margin = '0';
+    wrapper.style.padding = '0';
 
     // Format clone
     clone.style.position = 'static';
@@ -90,16 +93,22 @@ export default function Invoices() {
     clone.style.minWidth = '850px';
     clone.style.maxWidth = '850px';
     clone.style.boxSizing = 'border-box';
+    clone.style.backgroundColor = '#ffffff';
     clone.style.opacity = '1';
     clone.style.visibility = 'visible';
 
-    staging.appendChild(clone);
-    document.body.appendChild(staging);
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
 
-    // Wait for browser layout and image decoding
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Save scroll state and scroll to top (0,0) to prevent viewport offsets in html2canvas
+    const prevScrollX = window.scrollX;
+    const prevScrollY = window.scrollY;
+    window.scrollTo(0, 0);
 
-    const images = Array.from(staging.querySelectorAll('img'));
+    // Wait for DOM reflow and image decoding
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    const images = Array.from(wrapper.querySelectorAll('img'));
     await Promise.all(
       images.map((img) => {
         if (img.complete) return Promise.resolve();
@@ -110,27 +119,32 @@ export default function Invoices() {
       })
     );
 
-    const targetHeight = clone.offsetHeight || 1100;
+    const cardWidth = 850;
+    const cardHeight = clone.offsetHeight || 1100;
 
-    const canvas = await html2canvas(clone, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      imageTimeout: 0,
-      backgroundColor: '#ffffff',
-      logging: false,
-      scrollX: 0,
-      scrollY: 0,
-      x: 0,
-      y: 0,
-      width: 850,
-      height: targetHeight,
-      windowWidth: 850,
-      windowHeight: targetHeight,
-    });
-
-    if (staging.parentNode) {
-      document.body.removeChild(staging);
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        imageTimeout: 0,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: cardWidth,
+        height: cardHeight,
+        windowWidth: cardWidth,
+        windowHeight: cardHeight,
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
+      });
+    } finally {
+      if (wrapper.parentNode) {
+        document.body.removeChild(wrapper);
+      }
+      window.scrollTo(prevScrollX, prevScrollY);
     }
 
     return canvas;
@@ -147,7 +161,8 @@ export default function Invoices() {
       const image = canvas.toDataURL('image/png');
       const blob = dataURLtoBlob(image);
       const blobUrl = URL.createObjectURL(blob);
-      const filename = `invoice_${printingInvoice.invoiceNumber}.png`;
+      const prefix = printingInvoice.isQuote ? 'quote_' : 'invoice_';
+      const filename = `${prefix}${printingInvoice.invoiceNumber}.png`;
       
       setDownloadPreviewUrl(blobUrl);
       setDownloadPreviewFilename(filename);
@@ -161,9 +176,9 @@ export default function Invoices() {
       
       setIsSharingImage(false);
     } catch (err) {
-      console.error('Error downloading invoice:', err);
+      console.error('Error downloading invoice image:', err);
       setIsSharingImage(false);
-      alert('حدث خطأ أثناء محاولة حفظ الفاتورة كصورة');
+      alert('حدث خطأ أثناء محاولة حفظ المستند كصورة');
     }
   };
 
@@ -180,53 +195,25 @@ export default function Invoices() {
     const pdfWidth = pdf.internal.pageSize.getWidth(); // 210 mm
     const pdfHeight = pdf.internal.pageSize.getHeight(); // 297 mm
 
-    // Ideal canvas height for 1 full A4 page at canvas.width
-    const pageCanvasHeight = Math.floor(canvas.width * (pdfHeight / pdfWidth));
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
-    if (canvas.height <= pageCanvasHeight * 1.25) {
-      // Single page PDF (or scaled to fit 1 page)
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      if (imgHeight <= pdfHeight) {
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight, undefined, 'FAST');
-      } else {
-        const scaleFactor = pdfHeight / imgHeight;
-        const scaledWidth = pdfWidth * scaleFactor;
-        const xOffset = (pdfWidth - scaledWidth) / 2;
-        pdf.addImage(imgData, 'JPEG', xOffset, 0, scaledWidth, pdfHeight, undefined, 'FAST');
-      }
+    if (imgHeight <= pdfHeight) {
+      // Single page
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight, undefined, 'FAST');
     } else {
-      // Multi-page slicing: create a canvas slice for each A4 page
-      let currentY = 0;
-      let pageIndex = 0;
+      // Multi-page layout
+      let heightLeft = imgHeight;
+      let position = 0;
 
-      while (currentY < canvas.height) {
-        if (pageIndex > 0) {
-          pdf.addPage();
-        }
+      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pdfHeight;
 
-        const sliceHeight = Math.min(pageCanvasHeight, canvas.height - currentY);
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = canvas.width;
-        pageCanvas.height = pageCanvasHeight;
-        const ctx = pageCanvas.getContext('2d');
-
-        if (ctx) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-          ctx.drawImage(
-            canvas,
-            0, currentY, canvas.width, sliceHeight,
-            0, 0, canvas.width, sliceHeight
-          );
-        }
-
-        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.92);
-        pdf.addImage(pageImgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-
-        currentY += sliceHeight;
-        pageIndex++;
+      while (heightLeft > 0) {
+        position -= pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= pdfHeight;
       }
     }
 
@@ -239,12 +226,13 @@ export default function Invoices() {
     try {
       setIsSharingImage(true);
       const element = (printRef.current.firstElementChild || printRef.current) as HTMLElement;
-      await generateInvoicePdf(element, `invoice_${printingInvoice.invoiceNumber}.pdf`);
+      const prefix = printingInvoice.isQuote ? 'quote_' : 'invoice_';
+      await generateInvoicePdf(element, `${prefix}${printingInvoice.invoiceNumber}.pdf`);
       setIsSharingImage(false);
     } catch (err) {
       console.error('Error downloading invoice as PDF:', err);
       setIsSharingImage(false);
-      alert('حدث خطأ أثناء محاولة حفظ الفاتورة كملف PDF');
+      alert('حدث خطأ أثناء محاولة حفظ المستند كملف PDF');
     }
   };
 
@@ -253,12 +241,12 @@ export default function Invoices() {
     try {
       const response = await fetch(downloadPreviewUrl);
       const blob = await response.blob();
-      const file = new File([blob], downloadPreviewFilename || 'invoice.png', { type: 'image/png' });
+      const file = new File([blob], downloadPreviewFilename || 'document.png', { type: 'image/png' });
       if (navigator.share) {
         await navigator.share({
           files: [file],
-          title: 'فاتورة مبيعات',
-          text: `مشاركة فاتورة رقم ${downloadPreviewFilename.includes('_') ? downloadPreviewFilename.split('_')[1].split('.')[0] : ''}`
+          title: 'مستند مبيعات / عرض سعر',
+          text: `مشاركة المستند ${downloadPreviewFilename}`
         });
       } else {
         alert('المشاركة المحلية غير مدعومة في هذا المتصفح. يرجى استخدام زر التحميل العادي بالأسفل.');
@@ -273,14 +261,14 @@ export default function Invoices() {
       setIsSharingImage(true);
       setSharingInvoiceId(inv.id);
 
-      // Fast render wait
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      // Wait for React to mount the hidden preview element
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
       if (!element) {
         setIsSharingImage(false);
         setSharingInvoiceId(null);
-        alert("حدث خطأ أثناء تحديد الفاتورة في النظام.");
+        alert("حدث خطأ أثناء تحديد المستند في النظام.");
         return;
       }
 
@@ -289,7 +277,8 @@ export default function Invoices() {
       const image = canvas.toDataURL('image/png');
       const blob = dataURLtoBlob(image);
       const blobUrl = URL.createObjectURL(blob);
-      const filename = `invoice_${inv.invoiceNumber}.png`;
+      const prefix = inv.isQuote ? 'quote_' : 'invoice_';
+      const filename = `${prefix}${inv.invoiceNumber}.png`;
 
       setDownloadPreviewUrl(blobUrl);
       setDownloadPreviewFilename(filename);
@@ -307,7 +296,7 @@ export default function Invoices() {
       console.error(err);
       setIsSharingImage(false);
       setSharingInvoiceId(null);
-      alert("حدث خطأ أثناء محاولة المعالجة وحفظ الفاتورة كصورة: " + (err?.message || String(err)));
+      alert("حدث خطأ أثناء محاولة المعالجة وحفظ المستند كصورة: " + (err?.message || String(err)));
     }
   };
 
@@ -316,18 +305,20 @@ export default function Invoices() {
       setIsSharingImage(true);
       setSharingInvoiceId(inv.id);
 
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      // Wait for React to mount the hidden preview element
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
       if (!element) {
         setIsSharingImage(false);
         setSharingInvoiceId(null);
-        alert("حدث خطأ أثناء تحديد الفاتورة في النظام.");
+        alert("حدث خطأ أثناء تحديد المستند في النظام.");
         return;
       }
 
       const printTarget = (element.firstElementChild || element) as HTMLElement;
-      await generateInvoicePdf(printTarget, `invoice_${inv.invoiceNumber}.pdf`);
+      const prefix = inv.isQuote ? 'quote_' : 'invoice_';
+      await generateInvoicePdf(printTarget, `${prefix}${inv.invoiceNumber}.pdf`);
 
       setIsSharingImage(false);
       setSharingInvoiceId(null);
@@ -335,7 +326,7 @@ export default function Invoices() {
       console.error(err);
       setIsSharingImage(false);
       setSharingInvoiceId(null);
-      alert("حدث خطأ أثناء محاولة المعالجة وحفظ الفاتورة كملف PDF: " + (err?.message || String(err)));
+      alert("حدث خطأ أثناء محاولة المعالجة وحفظ المستند كملف PDF: " + (err?.message || String(err)));
     }
   };
 
