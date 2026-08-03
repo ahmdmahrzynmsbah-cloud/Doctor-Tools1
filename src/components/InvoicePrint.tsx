@@ -40,7 +40,7 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
         <div className="flex items-center gap-5">
           {profile.logo ? (
             <div className="w-24 h-24 bg-white rounded-2xl border border-[#CBD5E1] p-2 flex items-center justify-center shadow-md relative overflow-hidden shrink-0" style={{ backgroundColor: '#ffffff', borderColor: '#CBD5E1' }}>
-              <img 
+              <img style={{ width: "80px", height: "80px", objectFit: "contain", maxWidth: "100%", maxHeight: "100%" }} width="80" height="80"  
                 src={profile.logo} 
                 alt="Logo" 
                 className="max-w-full max-h-full object-contain rounded-xl"

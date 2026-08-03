@@ -193,7 +193,7 @@ export default function Invoices() {
       setSharingInvoiceId(inv.id);
 
       // Wait for React to mount the hidden preview element
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       const element = document.getElementById('hidden-share-invoice-print') || sharingPrintRef.current;
       if (!element) {
@@ -554,6 +554,15 @@ export default function Invoices() {
               <Printer className="w-4 h-4 sm:w-5 sm:h-5" />
               طباعة {printingInvoice.isQuote ? 'عرض السعر' : 'الفاتورة'}
             </button>
+            {printingInvoice.items.length <= 8 && (
+              <button 
+                onClick={downloadAsImage}
+                className="px-4 sm:px-6 py-2 bg-[#16A34A] text-white rounded-lg text-sm font-bold hover:bg-[#15803D] flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+                تحميل كصورة
+              </button>
+            )}
             <button 
               onClick={() => setPrintingInvoiceId(null)}
               className="px-4 sm:px-6 py-2 bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0] rounded-lg text-sm font-bold hover:bg-[#E2E8F0] cursor-pointer"
@@ -1084,19 +1093,32 @@ export default function Invoices() {
           </div>
         )}
 
-        {/* Hidden Invoice Capture Area for instant background image download */}
+        {/* Invoice Capture Area for instant background image download */}
         {sharingInvoiceId && (() => {
           const inv = invoices.find(i => i.id === sharingInvoiceId);
           if (!inv) return null;
           const cust = customers.find(c => c.id === inv.customerId);
           return (
-            <div style={{ position: 'fixed', top: '0px', left: '0px', width: '850px', zIndex: 9999999, opacity: 1, visibility: 'visible', backgroundColor: '#ffffff' }} id="hidden-share-invoice-print" ref={sharingPrintRef}>
-              <InvoicePrint 
-                invoice={inv} 
-                customer={cust} 
-                inventory={inventory} 
-                profile={businessProfile} 
-              />
+            <div 
+              style={{ 
+                position: 'fixed', 
+                top: '0px', 
+                left: '0px', 
+                width: '850px', 
+                backgroundColor: '#ffffff',
+                zIndex: 40,
+              }} 
+              id="hidden-share-invoice-print" 
+              ref={sharingPrintRef}
+            >
+              <div style={{ width: '850px', backgroundColor: '#ffffff', padding: '40px' }}>
+                <InvoicePrint 
+                  invoice={inv} 
+                  customer={cust} 
+                  inventory={inventory} 
+                  profile={businessProfile} 
+                />
+              </div>
             </div>
           );
         })()}
