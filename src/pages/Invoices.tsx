@@ -557,10 +557,11 @@ export default function Invoices() {
             {printingInvoice.items.length <= 8 && (
               <button 
                 onClick={downloadAsImage}
-                className="px-4 sm:px-6 py-2 bg-[#16A34A] text-white rounded-lg text-sm font-bold hover:bg-[#15803D] flex items-center gap-1.5 cursor-pointer shadow-sm"
+                disabled={isSharingImage}
+                className="px-4 sm:px-6 py-2 bg-[#16A34A] text-white rounded-lg text-sm font-bold hover:bg-[#15803D] flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-75 disabled:cursor-wait"
               >
-                <Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                تحميل كصورة
+                {isSharingImage ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <Download className="w-4 h-4 sm:w-5 sm:h-5" />}
+                {isSharingImage ? 'جاري المعالجة...' : 'تحميل كصورة'}
               </button>
             )}
             <button 
@@ -1106,7 +1107,9 @@ export default function Invoices() {
                 left: '0px', 
                 width: '850px', 
                 backgroundColor: '#ffffff',
-                zIndex: 40,
+                zIndex: -9999,
+                opacity: 0.01,
+                pointerEvents: 'none',
               }} 
               id="hidden-share-invoice-print" 
               ref={sharingPrintRef}

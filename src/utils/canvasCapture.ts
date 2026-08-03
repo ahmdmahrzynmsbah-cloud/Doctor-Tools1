@@ -7,20 +7,22 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth =
                (element.firstElementChild as HTMLElement) ||
                element;
 
-  const targetWidth = customWidth || card.offsetWidth || 850;
+  const targetWidth = customWidth || 850;
+  
+  const images = Array.from(card.querySelectorAll('img'));
+  await Promise.all(images.map((img) => {
+    if (img.complete) return Promise.resolve();
+    return new Promise((res) => { 
+      img.onload = res; 
+      img.onerror = res; 
+    });
+  }));
   
   if (document.fonts) {
     try { await document.fonts.ready; } catch (e) {}
   }
   
-  const images = Array.from(card.querySelectorAll('img'));
-  await Promise.all(images.map((img) => {
-    if (img.complete) return Promise.resolve();
-    return new Promise((res) => { img.onload = res; img.onerror = res; });
-  }));
-  
-  // Give ample time for React to render and images to load
-  await new Promise(r => setTimeout(r, 600));
+  await new Promise(r => setTimeout(r, 800));
 
   const targetHeight = card.scrollHeight || card.offsetHeight || 1150;
 
@@ -35,15 +37,24 @@ export async function captureElementToCanvas(element: HTMLElement, customWidth =
       height: targetHeight,
       windowWidth: targetWidth,
       windowHeight: targetHeight,
-      scrollX: 0,
-      scrollY: 0,
-      ignoreElements: (node) => {
-        if (node.classList && node.classList.contains('print:hidden')) {
-          return true;
+      onclone: (clonedDoc) => {
+        const printArea = clonedDoc.getElementById('hidden-share-invoice-print');
+        if (printArea) {
+          printArea.style.opacity = '1';
         }
-        return false;
+        
+        const invoiceCard = clonedDoc.getElementById('invoice-card');
+        if (invoiceCard) {
+          invoiceCard.style.minHeight = '1150px';
+        }
+
+        const hiddenElements = clonedDoc.querySelectorAll('.print\\:hidden');
+        hiddenElements.forEach(el => {
+          (el as HTMLElement).style.display = 'none';
+        });
       }
     });
+    
     return canvas;
   } catch (error) {
     console.error('html2canvas failed:', error);

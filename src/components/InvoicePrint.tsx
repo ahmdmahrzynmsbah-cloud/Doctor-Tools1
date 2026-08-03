@@ -30,8 +30,8 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
     >
       {/* Decorative Top Accent Bar */}
       <div 
-        className={`absolute top-0 left-0 right-0 h-2 ${invoice.isQuote ? 'bg-gradient-to-r from-[#D97706] to-[#F59E0B]' : 'bg-gradient-to-r from-[#2180B2] to-[#2ECC71]'}`} 
-        style={{ height: '8px', background: invoice.isQuote ? 'linear-gradient(to right, #D97706, #F59E0B)' : 'linear-gradient(to right, #2180B2, #2ECC71)' }}
+        className={`w-full h-2 ${invoice.isQuote ? 'bg-gradient-to-r from-[#D97706] to-[#F59E0B]' : 'bg-gradient-to-r from-[#2180B2] to-[#2ECC71]'}`} 
+        style={{ height: '8px', width: '100%', background: invoice.isQuote ? 'linear-gradient(to right, #D97706, #F59E0B)' : 'linear-gradient(to right, #2180B2, #2ECC71)' }}
       />
 
       {/* Header Container */}
