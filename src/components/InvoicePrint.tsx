@@ -238,6 +238,13 @@ export default function InvoicePrint({ invoice, customer, inventory, profile }: 
           </div>
         </div>
       </div>
+
+      {/* Developer Footer */}
+      <div className="mt-8 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3 text-center break-inside-avoid flex flex-col sm:flex-row justify-between items-center gap-2" style={{ marginTop: '32px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <p className="text-xs font-bold text-[#64748B]" dir="ltr" style={{ color: '#64748B', fontSize: '12px', fontWeight: 'bold', margin: 0 }}>ALL RIGHTS RESERVED © 2026</p>
+        <p className="text-xs font-bold text-[#2180B2]" dir="ltr" style={{ color: '#2180B2', fontSize: '12px', fontWeight: 'bold', margin: 0 }}>Developed by Fox Tech</p>
+        <p className="text-xs font-bold text-[#64748B]" dir="ltr" style={{ color: '#64748B', fontSize: '12px', fontWeight: 'bold', margin: 0 }}>📞 01034859313</p>
+      </div>
     </div>
   );
 }
