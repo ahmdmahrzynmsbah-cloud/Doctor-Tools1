@@ -1,6 +1,6 @@
 import html2canvas from 'html2canvas';
 
-export async function captureElementToCanvas(containerEl: HTMLElement, customWidth = 850): Promise<HTMLCanvasElement> {
+export async function captureElementToCanvas(containerEl: HTMLElement, customWidth = 850, isPdf = false): Promise<HTMLCanvasElement> {
   // Try to specifically target the invoice card
   let element = document.getElementById('invoice-card') as HTMLElement;
   
@@ -12,22 +12,16 @@ export async function captureElementToCanvas(containerEl: HTMLElement, customWid
            containerEl;
   }
 
+  if (!element) {
+    throw new Error('Element to capture not found');
+  }
+
   // Force wrapper to visible if using the hidden share print ref
   const parent = element.closest('#hidden-share-invoice-print') as HTMLElement;
   if (parent) {
      parent.style.opacity = '1';
      parent.style.zIndex = '9999';
   }
-
-  console.log(element);
-  console.log(element.outerHTML);
-  console.log(element.getBoundingClientRect());
-  console.log(getComputedStyle(element).display);
-  console.log(getComputedStyle(element).visibility);
-  console.log(getComputedStyle(element).opacity);
-
-  element.style.outline = "5px solid red";
-  await new Promise(r => setTimeout(r, 3000));
 
   const targetWidth = customWidth || 850;
   
@@ -58,32 +52,75 @@ export async function captureElementToCanvas(containerEl: HTMLElement, customWid
       useCORS: true,
       allowTaint: true,
       width: targetWidth,
-      height: targetHeight,
       windowWidth: targetWidth,
-      windowHeight: targetHeight,
       x: 0,
       y: 0,
       scrollX: 0,
       scrollY: 0,
-      onclone: (clonedDoc) => {
+            onclone: (clonedDoc) => {
         const hiddenElements = clonedDoc.querySelectorAll('.print\\:hidden');
         hiddenElements.forEach(el => {
           (el as HTMLElement).style.display = 'none';
         });
+
+        if (isPdf) {
+          const clonedCard = clonedDoc.getElementById('invoice-card') || clonedDoc.body.firstElementChild;
+          if (clonedCard) {
+            const cardWidth = targetWidth;
+            const pageHeightPx = cardWidth * (297 / 210);
+
+            const breakableElements = Array.from(clonedCard.querySelectorAll('tr, .break-inside-avoid'));
+
+            breakableElements.forEach(el => {
+              const cardRect = clonedCard.getBoundingClientRect();
+              const elRect = el.getBoundingClientRect();
+
+              const topRelativeToCard = elRect.top - cardRect.top;
+              const bottomRelativeToCard = elRect.bottom - cardRect.top;
+
+              const startPage = Math.floor(topRelativeToCard / pageHeightPx) + 1;
+              const endPage = Math.floor(bottomRelativeToCard / pageHeightPx) + 1;
+
+              if (endPage > startPage && topRelativeToCard < startPage * pageHeightPx) {
+                const shiftNeeded = (startPage * pageHeightPx) - topRelativeToCard;
+                
+                if (el.tagName.toLowerCase() === 'tr') {
+                  const spacer = clonedDoc.createElement('tr');
+                  spacer.style.height = `${shiftNeeded + 20}px`;
+                  const td = clonedDoc.createElement('td');
+                  td.colSpan = 20;
+                  td.style.border = 'none';
+                  td.style.padding = '0';
+                  td.style.backgroundColor = 'transparent';
+                  spacer.appendChild(td);
+                  el.parentNode.insertBefore(spacer, el);
+                } else {
+                  const spacer = clonedDoc.createElement('div');
+                  spacer.style.height = `${shiftNeeded + 20}px`;
+                  spacer.style.width = '100%';
+                  spacer.style.backgroundColor = 'transparent';
+                  el.parentNode.insertBefore(spacer, el);
+                }
+              }
+            });
+          }
+        }
       }
     });
     
     // Clean up
-    element.style.outline = "";
     if (parent) {
        parent.style.opacity = '0.01';
        parent.style.zIndex = '-9999';
     }
     
     return canvas;
-  } catch (error) {
-    console.error('Canvas capture failed:', error);
-    element.style.outline = "";
-    throw error;
+  } catch (error: any) {
+    if (parent) {
+       parent.style.opacity = '0.01';
+       parent.style.zIndex = '-9999';
+    }
+    // Prevent circular JSON errors when logging to AI Studio console
+    throw new Error(`html2canvas failed: ${error?.message || String(error)}`);
   }
 }

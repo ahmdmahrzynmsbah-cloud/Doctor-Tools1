@@ -62,12 +62,12 @@ export default function Invoices() {
     return new Blob([u8arr], { type: mime });
   };
 
-  const captureInvoiceCanvas = async (containerEl: HTMLElement): Promise<HTMLCanvasElement> => {
+  const captureInvoiceCanvas = async (containerEl: HTMLElement, isPdf = false): Promise<HTMLCanvasElement> => {
     const card = (containerEl.querySelector('#invoice-card') as HTMLElement) || 
                  (containerEl.firstElementChild as HTMLElement) || 
                  containerEl;
 
-    return await captureElementToCanvas(card, 850);
+    return await captureElementToCanvas(card, 850, isPdf);
   };
 
   const downloadAsImage = async () => {
@@ -96,14 +96,14 @@ export default function Invoices() {
       
       setIsSharingImage(false);
     } catch (err) {
-      console.error('Error downloading invoice image:', err);
+      console.error('Error downloading invoice image:', err?.message || String(err));
       setIsSharingImage(false);
       alert('حدث خطأ أثناء محاولة حفظ المستند كصورة');
     }
   };
 
   const generateInvoicePdf = async (element: HTMLElement, filename: string) => {
-    const canvas = await captureInvoiceCanvas(element);
+    const canvas = await captureInvoiceCanvas(element, true);
 
     const pdf = new jsPDF({
       orientation: 'portrait',
@@ -112,40 +112,23 @@ export default function Invoices() {
       compress: true
     });
 
-    const pdfWidth = pdf.internal.pageSize.getWidth(); // 210 mm
-    const pdfHeight = pdf.internal.pageSize.getHeight(); // 297 mm
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
 
     const imgData = canvas.toDataURL('image/png', 1.0);
     const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
-    // Single A4 page threshold: fit standard invoices (up to 1.35x A4 height) on a single page perfectly
-    if (imgHeight <= pdfHeight * 1.35) {
-      let printWidth = pdfWidth;
-      let printHeight = imgHeight;
+    let heightLeft = imgHeight;
+    let position = 0;
 
-      if (printHeight > pdfHeight) {
-        printHeight = pdfHeight;
-        printWidth = (canvas.width * pdfHeight) / canvas.height;
-      }
+    pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+    heightLeft -= pdfHeight;
 
-      const x = (pdfWidth - printWidth) / 2;
-      const y = 0;
-
-      console.log('5. PDF image position:', { x, y, printWidth, printHeight, pdfWidth, pdfHeight });
-
-      pdf.addImage(imgData, 'PNG', x, y, printWidth, printHeight, undefined, 'FAST');
-    } else {
-      console.log('5. PDF image position (dynamic page):', { x: 0, y: 0, printWidth: pdfWidth, printHeight: imgHeight });
-      // Dynamic single continuous page for long invoices to ensure zero content slicing or blank pages
-      const dynamicPdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: [pdfWidth, imgHeight],
-        compress: true
-      });
-      dynamicPdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight, undefined, 'FAST');
-      dynamicPdf.save(filename);
-      return;
+    while (heightLeft > 0) {
+      position -= pdfHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pdfHeight;
     }
 
     pdf.save(filename);
@@ -161,7 +144,7 @@ export default function Invoices() {
       await generateInvoicePdf(element, `${prefix}${printingInvoice.invoiceNumber}.pdf`);
       setIsSharingImage(false);
     } catch (err) {
-      console.error('Error downloading invoice as PDF:', err);
+      console.error('Error downloading invoice as PDF:', err?.message || String(err));
       setIsSharingImage(false);
       alert('حدث خطأ أثناء محاولة حفظ المستند كملف PDF');
     }
@@ -183,7 +166,7 @@ export default function Invoices() {
         alert('المشاركة المحلية غير مدعومة في هذا المتصفح. يرجى استخدام زر التحميل العادي بالأسفل.');
       }
     } catch (err) {
-      console.error('Error sharing image file:', err);
+      console.error('Error sharing image file:', err?.message || String(err));
     }
   };
 
@@ -224,7 +207,7 @@ export default function Invoices() {
       setIsSharingImage(false);
       setSharingInvoiceId(null);
     } catch (err: any) {
-      console.error(err);
+      console.error(err?.message || String(err));
       setIsSharingImage(false);
       setSharingInvoiceId(null);
       alert("حدث خطأ أثناء محاولة المعالجة وحفظ المستند كصورة: " + (err?.message || String(err)));
@@ -254,7 +237,7 @@ export default function Invoices() {
       setIsSharingImage(false);
       setSharingInvoiceId(null);
     } catch (err: any) {
-      console.error(err);
+      console.error(err?.message || String(err));
       setIsSharingImage(false);
       setSharingInvoiceId(null);
       alert("حدث خطأ أثناء محاولة المعالجة وحفظ المستند كملف PDF: " + (err?.message || String(err)));
@@ -462,7 +445,7 @@ export default function Invoices() {
               balance: 0
             });
           } catch (custErr) {
-            console.error('Error auto-creating customer:', custErr);
+            console.error('Error auto-creating customer:', custErr?.message || String(custErr));
             alert('تعذر إنشاء حساب العميل تلقائياً، يرجى تسجيل العميل يدوياً من شاشة العملاء.');
             return;
           }
@@ -562,6 +545,23 @@ export default function Invoices() {
               >
                 {isSharingImage ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <Download className="w-4 h-4 sm:w-5 sm:h-5" />}
                 {isSharingImage ? 'جاري المعالجة...' : 'تحميل كصورة'}
+              </button>
+            )}
+            <button 
+              onClick={downloadAsPdf}
+              disabled={isSharingImage}
+              className="px-4 sm:px-6 py-2 bg-[#DC2626] text-white rounded-lg text-sm font-bold hover:bg-[#B91C1C] flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-75 disabled:cursor-wait"
+            >
+              {isSharingImage ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <FileText className="w-4 h-4 sm:w-5 sm:h-5" />}
+              {isSharingImage ? 'جاري المعالجة...' : 'تحميل PDF'}
+            </button>
+            {downloadPreviewUrl && (
+              <button 
+                onClick={handleMobileShare}
+                className="px-4 sm:px-6 py-2 bg-[#8B5CF6] text-white rounded-lg text-sm font-bold hover:bg-[#7C3AED] flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                مشاركة
               </button>
             )}
             <button 
