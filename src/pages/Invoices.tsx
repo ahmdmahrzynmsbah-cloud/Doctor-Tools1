@@ -124,7 +124,7 @@ export default function Invoices() {
     pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
     heightLeft -= pdfHeight;
 
-    while (heightLeft > 0) {
+    while (heightLeft > 2) {
       position -= pdfHeight;
       pdf.addPage();
       pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');

@@ -64,10 +64,10 @@ export async function captureElementToCanvas(containerEl: HTMLElement, customWid
         });
 
         if (isPdf) {
-          const clonedCard = clonedDoc.getElementById('invoice-card') || clonedDoc.body.firstElementChild;
+          const clonedCard = (clonedDoc.getElementById('invoice-card') || clonedDoc.body.firstElementChild) as HTMLElement;
           if (clonedCard) {
             const cardWidth = targetWidth;
-            const pageHeightPx = cardWidth * (297 / 210);
+            const pageHeightPx = Math.floor(cardWidth * (297 / 210)); // ~1202px for 850px width
 
             const breakableElements = Array.from(clonedCard.querySelectorAll('tr, .break-inside-avoid'));
 
@@ -86,23 +86,38 @@ export async function captureElementToCanvas(containerEl: HTMLElement, customWid
                 
                 if (el.tagName.toLowerCase() === 'tr') {
                   const spacer = clonedDoc.createElement('tr');
-                  spacer.style.height = `${shiftNeeded + 20}px`;
+                  spacer.style.height = `${shiftNeeded + 2}px`;
                   const td = clonedDoc.createElement('td');
                   td.colSpan = 20;
                   td.style.border = 'none';
                   td.style.padding = '0';
                   td.style.backgroundColor = 'transparent';
                   spacer.appendChild(td);
-                  el.parentNode.insertBefore(spacer, el);
+                  if (el.parentNode) {
+                    el.parentNode.insertBefore(spacer, el);
+                  }
                 } else {
                   const spacer = clonedDoc.createElement('div');
-                  spacer.style.height = `${shiftNeeded + 20}px`;
+                  spacer.style.height = `${shiftNeeded + 2}px`;
                   spacer.style.width = '100%';
                   spacer.style.backgroundColor = 'transparent';
-                  el.parentNode.insertBefore(spacer, el);
+                  if (el.parentNode) {
+                    el.parentNode.insertBefore(spacer, el);
+                  }
                 }
               }
             });
+
+            // Adjust cloned card height to exact integer multiple of A4 page height
+            // This prevents leftover float margin creating an unwanted blank page in jsPDF
+            const rawHeight = clonedCard.scrollHeight || clonedCard.offsetHeight;
+            const totalPages = Math.max(1, Math.ceil((rawHeight - 10) / pageHeightPx));
+            const exactTargetHeight = totalPages * pageHeightPx;
+
+            clonedCard.style.height = `${exactTargetHeight}px`;
+            clonedCard.style.minHeight = `${exactTargetHeight}px`;
+            clonedCard.style.maxHeight = `${exactTargetHeight}px`;
+            clonedCard.style.boxSizing = 'border-box';
           }
         }
       }
